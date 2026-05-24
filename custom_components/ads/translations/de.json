@@ -6,7 +6,8 @@
     "error": {
       "cannot_connect": "Verbindung zum ADS-Ziel fehlgeschlagen.",
       "invalid_subnet": "Das Subnetz ist ungueltig. Beispiel: 192.168.0.0/24",
-      "no_ads_hosts": "Kein erreichbarer ADS-Router-Endpunkt im gescannten Bereich gefunden."
+      "no_ads_hosts": "Kein erreichbarer ADS-Router-Endpunkt im gescannten Bereich gefunden.",
+      "yaml_not_found": "Keine gueltige Legacy-ADS-YAML-Konfiguration gefunden. Pruefe deine YAML-Dateien und Logs."
     },
     "step": {
       "auto_discovery": {

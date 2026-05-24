@@ -6,7 +6,8 @@
     "error": {
       "cannot_connect": "Failed to connect to the ADS target.",
       "invalid_subnet": "Subnet is invalid. Example: 192.168.0.0/24",
-      "no_ads_hosts": "No reachable ADS router endpoint found in the scanned range."
+      "no_ads_hosts": "No reachable ADS router endpoint found in the scanned range.",
+      "yaml_not_found": "No valid legacy ADS YAML config was found. Check your YAML files and logs."
     },
     "step": {
       "auto_discovery": {

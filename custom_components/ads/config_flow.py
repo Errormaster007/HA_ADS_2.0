@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+import logging
 from pathlib import Path
 import ipaddress
 import socket
@@ -26,6 +27,9 @@ from .const import (
     DOMAIN,
 )
 from .gvl import parse_gvl_variables
+
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class AdsConfigFlow(ConfigFlow, domain="ads"):
@@ -96,6 +100,7 @@ class AdsConfigFlow(ConfigFlow, domain="ads"):
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         """Handle auto discovery entrypoint."""
+        _LOGGER.debug("ADS config flow: entering auto_discovery")
         self._yaml_defaults = await self.hass.async_add_executor_job(
             _discover_yaml_ads_config, self.hass.config.config_dir
         )
@@ -113,9 +118,11 @@ class AdsConfigFlow(ConfigFlow, domain="ads"):
         errors: dict[str, str] = {}
 
         if user_input is not None:
+            _LOGGER.debug("ADS config flow: network_scan input=%s", user_input)
             subnet = user_input["subnet"]
             scan_limit = user_input["scan_limit"]
             port = user_input[CONF_PORT]
+            _apply_debug_logging(bool(user_input[CONF_VERBOSE_LOGGING]))
 
             try:
                 ipaddress.ip_network(subnet, strict=False)
@@ -182,10 +189,12 @@ class AdsConfigFlow(ConfigFlow, domain="ads"):
         default_net_id = self._scan_candidates[0][CONF_DEVICE]
 
         if user_input is not None:
+            _LOGGER.debug("ADS config flow: network_pick input=%s", user_input)
             selected_ip = user_input[CONF_IP_ADDRESS]
             net_id = user_input[CONF_DEVICE]
             port = user_input[CONF_PORT]
             verbose_logging = user_input[CONF_VERBOSE_LOGGING]
+            _apply_debug_logging(bool(verbose_logging))
 
             selected_data = {
                 CONF_DEVICE: net_id,
@@ -212,6 +221,12 @@ class AdsConfigFlow(ConfigFlow, domain="ads"):
                 port,
                 selected_ip,
             ):
+                _LOGGER.debug(
+                    "ADS config flow: network_pick connection failed net_id=%s ip=%s port=%s",
+                    net_id,
+                    selected_ip,
+                    port,
+                )
                 errors["base"] = "cannot_connect"
             else:
                 return self.async_create_entry(title=f"ADS {net_id}", data=selected_data)
@@ -248,6 +263,7 @@ class AdsConfigFlow(ConfigFlow, domain="ads"):
             return await self.async_step_network_pick()
 
         if user_input is not None:
+            _LOGGER.debug("ADS config flow: network_legacy_choice input=%s", user_input)
             entry_data = dict(self._pending_scan_data)
             if user_input["use_legacy_yaml"] and self._yaml_defaults:
                 entry_data.update(
@@ -297,6 +313,8 @@ class AdsConfigFlow(ConfigFlow, domain="ads"):
         errors: dict[str, str] = {}
 
         if user_input is not None:
+            _LOGGER.debug("ADS config flow: manual input=%s", user_input)
+            _apply_debug_logging(bool(user_input.get(CONF_VERBOSE_LOGGING, False)))
             if user_input.get("scan_legacy_yaml"):
                 self._yaml_defaults = await self.hass.async_add_executor_job(
                     _discover_yaml_ads_config, self.hass.config.config_dir
@@ -323,6 +341,12 @@ class AdsConfigFlow(ConfigFlow, domain="ads"):
                 port,
                 ip_address,
             ):
+                _LOGGER.debug(
+                    "ADS config flow: manual connection failed net_id=%s ip=%s port=%s",
+                    net_id,
+                    ip_address,
+                    port,
+                )
                 errors["base"] = "cannot_connect"
             else:
                 return self.async_create_entry(
@@ -346,9 +370,23 @@ class AdsConfigFlow(ConfigFlow, domain="ads"):
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         """Load the first ADS YAML config that can be found."""
+        _LOGGER.debug("ADS config flow: yaml_import triggered user_input=%s", user_input)
         self._yaml_defaults = await self.hass.async_add_executor_job(
             _discover_yaml_ads_config, self.hass.config.config_dir
         )
+        if not self._yaml_defaults:
+            _LOGGER.warning(
+                "ADS config flow: yaml_import requested but no valid ADS YAML config found in %s",
+                self.hass.config.config_dir,
+            )
+            return self.async_show_form(
+                step_id="manual",
+                data_schema=self._user_data_schema(self._manual_form_defaults({})),
+                errors={"base": "yaml_not_found"},
+            )
+
+        _apply_debug_logging(bool(self._yaml_defaults.get(CONF_VERBOSE_LOGGING, False)))
+        _LOGGER.debug("ADS config flow: yaml_import defaults=%s", self._yaml_defaults)
         return await self.async_step_manual()
 
     @staticmethod
@@ -436,12 +474,20 @@ class AdsOptionsFlow(OptionsFlow):
 
 def _validate_ads_connection(net_id: str, port: int, ip_address: str | None) -> bool:
     """Validate ADS connection parameters by opening and closing connection."""
+    _LOGGER.debug(
+        "ADS config flow: validating ADS connection net_id=%s ip=%s port=%s",
+        net_id,
+        ip_address,
+        port,
+    )
     connection = pyads.Connection(net_id, port, ip_address)
 
     try:
         connection.open()
+        _LOGGER.debug("ADS config flow: ADS connection validation succeeded")
         return True
-    except pyads.ADSError:
+    except pyads.ADSError as err:
+        _LOGGER.debug("ADS config flow: ADS connection validation failed: %s", err)
         return False
     finally:
         try:
@@ -507,11 +553,17 @@ def _guess_local_subnet() -> str:
 def _discover_yaml_ads_config(config_dir: str) -> dict[str, Any] | None:
     """Find the first ADS YAML config in the Home Assistant config directory."""
     config_path = Path(config_dir)
+    _LOGGER.debug("ADS config flow: searching for YAML ADS config in %s", config_dir)
 
     for yaml_path in sorted((*config_path.rglob("*.yaml"), *config_path.rglob("*.yml"))):
         try:
             loaded_config = load_yaml_config_file(str(yaml_path))
-        except (FileNotFoundError, HomeAssistantError, OSError):
+        except (FileNotFoundError, HomeAssistantError, OSError) as err:
+            _LOGGER.debug(
+                "ADS config flow: failed reading YAML file %s: %s",
+                yaml_path,
+                err,
+            )
             continue
 
         ads_config = _find_ads_config(loaded_config)
@@ -527,8 +579,14 @@ def _discover_yaml_ads_config(config_dir: str) -> dict[str, Any] | None:
         try:
             port_int = int(port)
         except (TypeError, ValueError):
+            _LOGGER.debug(
+                "ADS config flow: invalid port in YAML file %s (value=%s)",
+                yaml_path,
+                port,
+            )
             continue
 
+        _LOGGER.info("ADS config flow: found legacy ADS YAML config in %s", yaml_path)
         return {
             CONF_DEVICE: net_id,
             CONF_PORT: port_int,
@@ -536,7 +594,18 @@ def _discover_yaml_ads_config(config_dir: str) -> dict[str, Any] | None:
             CONF_VERBOSE_LOGGING: bool(ads_config.get(CONF_VERBOSE_LOGGING, False)),
         }
 
+    _LOGGER.debug("ADS config flow: no valid ADS YAML config found")
     return None
+
+
+def _apply_debug_logging(verbose_logging: bool) -> None:
+    """Enable ADS-specific debug logging during setup flow when requested."""
+    if not verbose_logging:
+        return
+
+    logging.getLogger("custom_components.ads").setLevel(logging.DEBUG)
+    logging.getLogger("custom_components.ads.config_flow").setLevel(logging.DEBUG)
+    logging.getLogger("pyads").setLevel(logging.DEBUG)
 
 
 def _find_ads_config(data: Any) -> Any:
