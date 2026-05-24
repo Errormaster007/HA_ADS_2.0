@@ -342,7 +342,9 @@ class AdsConfigFlow(ConfigFlow, domain="ads"):
             errors=errors,
         )
 
-    async def async_step_yaml_import(self) -> ConfigFlowResult:
+    async def async_step_yaml_import(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
         """Load the first ADS YAML config that can be found."""
         self._yaml_defaults = await self.hass.async_add_executor_job(
             _discover_yaml_ads_config, self.hass.config.config_dir
