@@ -12,6 +12,8 @@ from homeassistant.const import (
     CONF_IP_ADDRESS,
     CONF_PORT,
     EVENT_HOMEASSISTANT_STOP,
+    EVENT_HOMEASSISTANT_STARTED,
+    EVENT_HOMEASSISTANT_STOP,
 )
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers import config_validation as cv
