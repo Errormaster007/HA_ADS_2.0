@@ -1,7 +1,7 @@
 # ADS – Beckhoff TwinCAT Integration für Home Assistant
 
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://hacs.xyz)
-[![Version](https://img.shields.io/badge/version-0.1.1-blue.svg)](https://github.com/Errormaster007/ads-custom-component/releases)
+[![Version](https://img.shields.io/badge/version-0.1.1-blue.svg)](https://github.com/Errormaster007/HA_ADS_2.0/releases)
 
 Erweiterte ADS-Integration für Home Assistant zur Anbindung von Beckhoff TwinCAT-SPSen über das ADS-Protokoll.
 
@@ -13,11 +13,11 @@ Erweiterte ADS-Integration für Home Assistant zur Anbindung von Beckhoff TwinCA
 
 ## Installation über HACS (empfohlen)
 
-[![Add to HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Errormaster007&repository=ads-custom-component&category=integration)
+[![Add to HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Errormaster007&repository=HA_ADS_2.0&category=integration)
 
 Oder manuell als Custom Repository:
 1. HACS → Integrationen → Drei Punkte → **Benutzerdefiniertes Repository**
-2. URL: `https://github.com/Errormaster007/ads-custom-component`  
+2. URL: `https://github.com/Errormaster007/HA_ADS_2.0`  
    Kategorie: Integration
 3. **ADS – Beckhoff TwinCAT** installieren → Home Assistant neu starten
 4. Einstellungen → Geräte & Dienste → **ADS** hinzufügen

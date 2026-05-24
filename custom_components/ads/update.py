@@ -19,7 +19,7 @@ from .const import DOMAIN
 _LOGGER = logging.getLogger(__name__)
 
 _MANIFEST_PATH = Path(__file__).with_name("manifest.json")
-_REPOSITORY = "Errormaster007/ads-custom-component"
+_REPOSITORY = "Errormaster007/HA_ADS_2.0"
 _LATEST_RELEASE_URL = f"https://api.github.com/repos/{_REPOSITORY}/releases/latest"
 
 
