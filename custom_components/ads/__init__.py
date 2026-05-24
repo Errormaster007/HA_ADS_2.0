@@ -128,7 +128,7 @@ def setup(hass: HomeAssistant, config: ConfigType) -> bool:
     hass.data.setdefault(DATA_ADS_HUBS, {})
 
     if DOMAIN not in config:
-        _register_services(hass)
+        hass.add_job(_async_register_services(hass))
         return True
 
     conf = config[DOMAIN]
@@ -167,7 +167,7 @@ def setup(hass: HomeAssistant, config: ConfigType) -> bool:
     hass.data[DATA_ADS] = ads
     hass.data[DATA_ADS_HUBS]["yaml"] = ads
     hass.bus.listen(EVENT_HOMEASSISTANT_STOP, ads.shutdown)
-    _register_services(hass)
+    hass.add_job(_async_register_services(hass))
 
     return True
 
@@ -238,7 +238,7 @@ async def async_setup_entry(hass: HomeAssistant, entry) -> bool:
                 _count_legacy_entities(migrated_legacy_entities),
             )
 
-    _register_services(hass)
+    await _async_register_services(hass)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     entry.async_on_unload(entry.add_update_listener(async_reload_entry))
@@ -268,7 +268,7 @@ async def async_reload_entry(hass: HomeAssistant, entry) -> None:
     await async_setup_entry(hass, entry)
 
 
-def _register_services(hass: HomeAssistant) -> None:
+async def _async_register_services(hass: HomeAssistant) -> None:
     """Register ADS services once."""
     if hass.services.has_service(DOMAIN, SERVICE_WRITE_DATA_BY_NAME):
         return

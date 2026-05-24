@@ -1,7 +1,7 @@
 {
   "domain": "ads",
   "name": "ADS",
-  "version": "0.1.10",
+  "version": "0.1.11",
   "codeowners": ["@Errormaster007"],
   "documentation": "https://github.com/Errormaster007/HA_ADS_2.0",
   "issue_tracker": "https://github.com/Errormaster007/HA_ADS_2.0/issues",
