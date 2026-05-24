@@ -1,0 +1,123 @@
+{
+  "config": {
+    "abort": {
+      "already_configured": "Dieses ADS-Ziel ist bereits eingerichtet."
+    },
+    "error": {
+      "cannot_connect": "Verbindung zum ADS-Ziel fehlgeschlagen.",
+      "invalid_subnet": "Das Subnetz ist ungueltig. Beispiel: 192.168.0.0/24",
+      "no_ads_hosts": "Kein erreichbarer ADS-Router-Endpunkt im gescannten Bereich gefunden."
+    },
+    "step": {
+      "auto_discovery": {
+        "description": "Waehle, wie ADS eingerichtet werden soll. Auto Discovery scannt dein Netzwerk, Manuelles Setup nutzt eigene Eingaben, YAML-Import uebernimmt alte Konfiguration.",
+        "menu_options": {
+          "network_scan": "Netzwerk nach ADS-Hosts scannen",
+          "manual": "Manuelles Setup",
+          "yaml_import": "Aus Legacy-YAML importieren"
+        }
+      },
+      "network_scan": {
+        "data": {
+          "port": "ADS Runtime Port",
+          "scan_limit": "Maximale Anzahl zu pruefender Hosts",
+          "subnet": "Subnetz (CIDR)",
+          "verbose_logging": "Ausfuehrliches Logging aktivieren"
+        },
+        "description": "Prueft das konfigurierte Subnetz auf Hosts mit offenem ADS-Router-Port."
+      },
+      "network_pick": {
+        "data": {
+          "device": "AMS Net ID",
+          "ip_address": "Gefundener Host",
+          "port": "ADS Port",
+          "search_legacy_yaml": "Lokale Legacy-YAML-Konfiguration suchen",
+          "verbose_logging": "Ausfuehrliches Logging aktivieren"
+        },
+        "description": "Waehle einen gefundenen Host und bestaetige die Verbindungsparameter."
+      },
+      "network_legacy_choice": {
+        "data": {
+          "use_legacy_yaml": "Werte aus gefundener Legacy-YAML-Konfiguration verwenden"
+        },
+        "description": "Es wurde eine Legacy-ADS-YAML-Konfiguration gefunden. Waehle, ob deren Werte uebernommen werden sollen."
+      },
+      "user": {
+        "description": "Richte ADS fuer deine Beckhoff SPS ein. Waehle die Option, die zu deiner Konfiguration passt.",
+        "menu_options": {
+          "auto_discovery": "Auto Discovery - Netzwerk nach einem ADS-Ziel scannen",
+          "manual": "Manuelles Setup - AMS Net ID, IP-Adresse und Port eingeben",
+          "yaml_import": "Aus Legacy-YAML importieren - vorhandene YAML-Konfiguration uebernehmen"
+        }
+      },
+      "manual": {
+        "data": {
+          "device": "AMS Net ID",
+          "ip_address": "IP-Adresse",
+          "port": "ADS Port",
+          "scan_legacy_yaml": "Lokale Legacy-YAML suchen und Felder vorbelegen",
+          "verbose_logging": "Ausfuehrliches Logging aktivieren"
+        },
+        "description": "Konfiguriere die ADS-Verbindung zu deiner Beckhoff SPS."
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "data": {
+          "gvl": "GVL-Inhalt",
+          "gvl_import_replace": "Bereits importierte GVL-Variablen ersetzen",
+          "verbose_logging": "Ausfuehrliches Logging aktivieren"
+        },
+        "description": "Importiere GVL-Variablen fuer schnelleres PLC-Variablen-Matching und passe das Logging an."
+      }
+    }
+  },
+  "services": {
+    "import_gvl": {
+      "description": "Importiert GVL-Variablen aus Text oder Datei und speichert sie in den ADS-Optionen.",
+      "fields": {
+        "entry_id": {
+          "description": "Optionale ADS-Config-Entry-ID. Wenn leer, wird der erste ADS-Config-Entry verwendet.",
+          "name": "Config-Entry-ID"
+        },
+        "gvl": {
+          "description": "Roher GVL-Inhalt zum Parsen.",
+          "name": "GVL-Inhalt"
+        },
+        "gvl_file_path": {
+          "description": "Absoluter Pfad zu einer GVL-Datei zum Parsen.",
+          "name": "GVL-Dateipfad"
+        },
+        "gvl_import_replace": {
+          "description": "Bereits vorhandene importierte Variablen ersetzen statt nach Namen zusammenzufuehren.",
+          "name": "Vorhandene ersetzen"
+        }
+      },
+      "name": "GVL importieren"
+    },
+    "write_data_by_name": {
+      "description": "Schreibt einen Wert in das verbundene ADS-Geraet.",
+      "fields": {
+        "entry_id": {
+          "description": "Optionale ADS-Config-Entry-ID. Wenn leer, wird die Standard-ADS-Verbindung verwendet.",
+          "name": "Config-Entry-ID"
+        },
+        "adstype": {
+          "description": "Datentyp der zu schreibenden Variable.",
+          "name": "ADS-Typ"
+        },
+        "adsvar": {
+          "description": "Name der zu schreibenden ADS-Variable.",
+          "name": "ADS-Variable"
+        },
+        "value": {
+          "description": "Wert, der in die Variable geschrieben wird.",
+          "name": "Wert"
+        }
+      },
+      "name": "Daten per Name schreiben"
+    }
+  }
+}
