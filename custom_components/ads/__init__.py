@@ -115,10 +115,8 @@ def setup(hass: HomeAssistant, config: ConfigType) -> bool:
     if verbose_logging:
         _LOGGER.setLevel(logging.DEBUG)
 
-    # Schedule async migration from YAML to config entry
-    hass.async_create_task(
-        _async_migrate_yaml_to_entry(hass, conf)
-    )
+    # Store YAML config for later async migration in async_setup_entry
+    hass.data.setdefault(f"{DOMAIN}_yaml_config", conf)
 
     client = pyads.Connection(net_id, port, ip_address)
 
@@ -143,6 +141,12 @@ def setup(hass: HomeAssistant, config: ConfigType) -> bool:
 async def async_setup_entry(hass: HomeAssistant, entry) -> bool:
     """Set up ADS from a config entry."""
     hass.data.setdefault(DATA_ADS_HUBS, {})
+
+    # Migrate YAML config on first config entry creation
+    existing_entries = [e for e in hass.config_entries.async_entries(DOMAIN) if e.entry_id != entry.entry_id]
+    if not existing_entries and f"{DOMAIN}_yaml_config" in hass.data:
+        yaml_conf = hass.data.pop(f"{DOMAIN}_yaml_config")
+        await _async_migrate_yaml_to_entry(hass, yaml_conf)
 
     net_id: str = entry.data[CONF_DEVICE]
     port: int = entry.data[CONF_PORT]
@@ -357,22 +361,21 @@ async def _async_migrate_yaml_to_entry(hass: HomeAssistant, yaml_config: dict) -
             port,
         )
 
-        hass.async_create_task(
-            hass.config_entries.flow.async_init(
-                DOMAIN,
-                context={"source": "import"},
-                data={
-                    CONF_DEVICE: net_id,
-                    CONF_PORT: port,
-                    CONF_IP_ADDRESS: ip_address,
-                    CONF_VERBOSE_LOGGING: verbose_logging,
-                },
-            )
+        await hass.config_entries.flow.async_init(
+            DOMAIN,
+            context={"source": "import"},
+            data={
+                CONF_DEVICE: net_id,
+                CONF_PORT: port,
+                CONF_IP_ADDRESS: ip_address,
+                CONF_VERBOSE_LOGGING: verbose_logging,
+            },
         )
 
         _LOGGER.info(
-            "Successfully migrated YAML ADS configuration. "
-            "Please restart Home Assistant to complete the migration."
+            "Successfully migrated YAML ADS configuration to config entry (NetID: %s, Port: %d)",
+            net_id,
+            port,
         )
     except Exception as err:
         _LOGGER.error(
