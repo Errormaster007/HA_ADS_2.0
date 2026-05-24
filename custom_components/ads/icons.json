@@ -1,0 +1,10 @@
+{
+  "services": {
+    "import_gvl": {
+      "service": "mdi:file-import"
+    },
+    "write_data_by_name": {
+      "service": "mdi:pencil"
+    }
+  }
+}

@@ -1,0 +1,52 @@
+# Describes the format for available ADS services
+
+write_data_by_name:
+  fields:
+    entry_id:
+      required: false
+      selector:
+        text:
+    adsvar:
+      required: true
+      example: ".global_var"
+      selector:
+        text:
+    adstype:
+      required: true
+      selector:
+        select:
+          options:
+            - "bool"
+            - "byte"
+            - "dint"
+            - "int"
+            - "udint"
+            - "uint"
+    value:
+      required: true
+      selector:
+        number:
+          min: 0
+          max: 10000
+
+import_gvl:
+  fields:
+    entry_id:
+      required: false
+      selector:
+        text:
+    gvl:
+      required: false
+      selector:
+        text:
+          multiline: true
+    gvl_file_path:
+      required: false
+      example: "/config/beckhoff/global_variables.gvl"
+      selector:
+        text:
+    gvl_import_replace:
+      required: false
+      default: false
+      selector:
+        boolean:

@@ -1,0 +1,79 @@
+{
+  "config": {
+    "abort": {
+      "already_configured": "This ADS target is already configured."
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to the ADS target."
+    },
+    "step": {
+      "user": {
+        "data": {
+          "device": "AMS Net ID",
+          "ip_address": "IP address",
+          "port": "ADS port",
+          "verbose_logging": "Enable verbose logging"
+        },
+        "description": "Configure the ADS connection to your Beckhoff PLC."
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "data": {
+          "gvl": "GVL content",
+          "gvl_import_replace": "Replace existing imported GVL variables",
+          "verbose_logging": "Enable verbose logging"
+        },
+        "description": "Import GVL variables for faster PLC variable matching and tune logging."
+      }
+    }
+  },
+  "services": {
+    "import_gvl": {
+      "description": "Import GVL variables from text or a file and store them in ADS options.",
+      "fields": {
+        "entry_id": {
+          "description": "Optional ADS config entry id. If omitted, the first ADS config entry is used.",
+          "name": "Config entry id"
+        },
+        "gvl": {
+          "description": "Raw GVL content to parse.",
+          "name": "GVL content"
+        },
+        "gvl_file_path": {
+          "description": "Absolute path to a GVL file to parse.",
+          "name": "GVL file path"
+        },
+        "gvl_import_replace": {
+          "description": "Replace existing imported variables instead of merging by name.",
+          "name": "Replace existing"
+        }
+      },
+      "name": "Import GVL"
+    },
+    "write_data_by_name": {
+      "description": "Write a value to the connected ADS device.",
+      "fields": {
+        "entry_id": {
+          "description": "Optional ADS config entry id. If omitted, the default ADS connection is used.",
+          "name": "Config entry id"
+        },
+        "adstype": {
+          "description": "The data type of the variable to write to.",
+          "name": "ADS type"
+        },
+        "adsvar": {
+          "description": "The name of the variable to write to.",
+          "name": "ADS variable"
+        },
+        "value": {
+          "description": "The value to write to the variable.",
+          "name": "Value"
+        }
+      },
+      "name": "Write data by name"
+    }
+  }
+}
