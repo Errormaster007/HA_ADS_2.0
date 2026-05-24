@@ -22,14 +22,12 @@ from .const import (
 from .gvl import parse_gvl_variables
 
 
-class AdsConfigFlow(ConfigFlow, domain=DOMAIN):
+class AdsConfigFlow(ConfigFlow, domain="ads"):
     """Handle an ADS config flow."""
 
     VERSION = 1
 
-    @staticmethod
-    @callback
-    def async_get_options_flow(config_entry):
+    def async_get_options_flow(self, config_entry):
         """Return the options flow for this handler."""
         return AdsOptionsFlow(config_entry)
 
