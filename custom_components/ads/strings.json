@@ -10,7 +10,7 @@
     },
     "step": {
       "auto_discovery": {
-        "description": "Choose how ADS targets should be discovered."
+        "description": "Choose how you want to set up ADS. Auto discovery scans your network, manual setup lets you enter the values yourself, and YAML import reuses an old config."
       },
       "network_scan": {
         "data": {
@@ -38,11 +38,11 @@
         "description": "A legacy ADS YAML config was found. Choose whether to apply its values."
       },
       "user": {
-        "description": "Set up ADS for your Beckhoff PLC.",
+        "description": "Set up ADS for your Beckhoff PLC. Pick the option that matches how your PLC is configured.",
         "menu_options": {
-          "auto_discovery": "Auto discovery",
-          "manual": "Manual setup",
-          "yaml_import": "Import from legacy YAML"
+          "auto_discovery": "Auto discovery - scan the network for an ADS target",
+          "manual": "Manual setup - enter AMS Net ID, IP address, and port",
+          "yaml_import": "Import from legacy YAML - reuse an existing YAML config"
         }
       },
       "manual": {
