@@ -65,6 +65,10 @@ def setup_platform(
     name: str = config[CONF_NAME]
     device_class: CoverDeviceClass | None = config.get(CONF_DEVICE_CLASS)
 
+    if not ads_hub.has_variable(ads_var_is_closed, pyads.PLCTYPE_BOOL):
+        ads_hub.record_missing_variable(ads_var_is_closed, name, "cover")
+        return
+
     add_entities(
         [
             AdsCover(

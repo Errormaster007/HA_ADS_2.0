@@ -61,6 +61,10 @@ def setup_platform(
     max_color_temp_kelvin: int | None = config.get(CONF_MAX_COLOR_TEMP_KELVIN)
     name: str = config[CONF_NAME]
 
+    if not ads_hub.has_variable(ads_var_enable, pyads.PLCTYPE_BOOL):
+        ads_hub.record_missing_variable(ads_var_enable, name, "light")
+        return
+
     add_entities(
         [
             AdsLight(

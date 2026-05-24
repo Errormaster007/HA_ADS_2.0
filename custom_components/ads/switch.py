@@ -40,6 +40,10 @@ def setup_platform(
     name: str = config[CONF_NAME]
     ads_var: str = config[CONF_ADS_VAR]
 
+    if not ads_hub.has_variable(ads_var, pyads.PLCTYPE_BOOL):
+        ads_hub.record_missing_variable(ads_var, name, "switch")
+        return
+
     add_entities([AdsSwitch(ads_hub, name, ads_var)])
 
 

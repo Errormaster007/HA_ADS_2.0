@@ -29,6 +29,7 @@ class AdsHub:
         # All ADS devices are registered here
         self._devices = []
         self._notification_items = {}
+        self._missing_variables: list[dict[str, str]] = []
         self._lock = threading.Lock()
 
     def shutdown(self, *args, **kwargs):
@@ -57,6 +58,27 @@ class AdsHub:
     def register_device(self, device):
         """Register a new device."""
         self._devices.append(device)
+
+    @property
+    def missing_variables(self) -> list[dict[str, str]]:
+        """Return all missing ADS variables collected for debug output."""
+        return list(self._missing_variables)
+
+    def record_missing_variable(self, name: str, entity_name: str, source: str) -> None:
+        """Store a missing ADS symbol once for later diagnostics."""
+        item = {"name": name, "entity": entity_name, "source": source}
+        if item not in self._missing_variables:
+            self._missing_variables.append(item)
+
+    def has_variable(self, name: str, plc_datatype) -> bool:
+        """Check whether a PLC symbol exists without logging a hard error."""
+        with self._lock:
+            try:
+                self._client.read_by_name(name, plc_datatype)
+            except pyads.ADSError:
+                return False
+
+        return True
 
     def write_by_name(self, name, value, plc_datatype):
         """Write a value to the device."""
@@ -100,7 +122,18 @@ class AdsHub:
                     name, attr, self._device_notification_callback
                 )
             except pyads.ADSError as err:
+                if _is_missing_symbol_error(err):
+                    self.record_missing_variable(name, name, "notification")
+                    _LOGGER.debug(
+                        "Hub '%s': Skipping missing variable '%s' (%s)",
+                        self._hub_id,
+                        name,
+                        err,
+                    )
+                    return False
+
                 _LOGGER.error("Hub '%s': Error subscribing to %s: %s", self._hub_id, name, err)
+                return False
             else:
                 hnotify = int(hnotify)
                 self._notification_items[hnotify] = NotificationItem(
@@ -113,6 +146,14 @@ class AdsHub:
                     hnotify,
                     name,
                 )
+
+                return True
+
+
+def _is_missing_symbol_error(err: pyads.ADSError) -> bool:
+    """Return True if an ADS error means that a symbol does not exist."""
+    message = str(err).lower()
+    return "symbol not found" in message or "1808" in message
 
     def _device_notification_callback(self, notification, name):
         """Handle device notifications."""

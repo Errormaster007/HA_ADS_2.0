@@ -11,14 +11,14 @@ from homeassistant.components.sensor import (
     SensorEntity,
     SensorStateClass,
 )
-from homeassistant.const import CONF_DEVICE_CLASS, CONF_NAME, CONF_UNIT_OF_MEASUREMENT
+from homeassistant.const import CONF_DEVICE_CLASS, CONF_NAME, CONF_UNIT_OF_MEASUREMENT, EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType, StateType
 
 from . import ADS_TYPEMAP, CONF_ADS_FACTOR, CONF_ADS_TYPE
-from .const import CONF_ADS_VAR, DATA_ADS, STATE_KEY_STATE, AdsType
+from .const import CONF_ADS_VAR, DATA_ADS, DATA_ADS_HUBS, STATE_KEY_STATE, AdsType, DOMAIN
 from .entity import AdsEntity
 from .hub import AdsHub
 
@@ -72,6 +72,10 @@ def setup_platform(
     state_class: SensorStateClass | None = config.get(CONF_STATE_CLASS)
     unit_of_measurement: str | None = config.get(CONF_UNIT_OF_MEASUREMENT)
 
+    if not ads_hub.has_variable(ads_var, ADS_TYPEMAP[ads_type]):
+        ads_hub.record_missing_variable(ads_var, name, "sensor")
+        return
+
     entity = AdsSensor(
         ads_hub,
         ads_var,
@@ -84,6 +88,15 @@ def setup_platform(
     )
 
     add_entities([entity])
+
+
+async def async_setup_entry(
+    hass: HomeAssistant,
+    entry,
+    async_add_entities: AddEntitiesCallback,
+) -> None:
+    """Set up the ADS debug sensor for config entry based setups."""
+    async_add_entities([AdsDebugMissingVariablesSensor(hass, entry.entry_id)])
 
 
 class AdsSensor(AdsEntity, SensorEntity):
@@ -121,3 +134,47 @@ class AdsSensor(AdsEntity, SensorEntity):
     def native_value(self) -> StateType:
         """Return the state of the device."""
         return self._state_dict[STATE_KEY_STATE]
+
+
+class AdsDebugMissingVariablesSensor(SensorEntity):
+    """Diagnostic sensor exposing missing ADS symbols."""
+
+    _attr_has_entity_name = True
+    _attr_name = "Missing ADS symbols"
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    def __init__(self, hass: HomeAssistant, entry_id: str) -> None:
+        self.hass = hass
+        self._entry_id = entry_id
+        self._attr_unique_id = f"{DOMAIN}_{entry_id}_missing_symbols"
+
+    @property
+    def title(self) -> str:
+        """Return the title shown for the debug sensor."""
+        return "ADS Debug"
+
+    @property
+    def native_value(self) -> int:
+        """Return the number of skipped ADS symbols."""
+        hub = self._resolve_hub()
+        if hub is None:
+            return 0
+
+        return len(hub.missing_variables)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, object]:
+        """Expose the missing symbol list as sensor attributes."""
+        hub = self._resolve_hub()
+        if hub is None:
+            return {"missing_variables": []}
+
+        return {
+            "missing_variables": hub.missing_variables,
+            "missing_count": len(hub.missing_variables),
+        }
+
+    def _resolve_hub(self) -> AdsHub | None:
+        """Resolve the current ADS hub for this config entry."""
+        hubs = self.hass.data.get(DATA_ADS_HUBS, {})
+        return hubs.get(self._entry_id)

@@ -44,6 +44,10 @@ def setup_platform(
     name: str = config[CONF_NAME]
     options: list[str] = config[CONF_OPTIONS]
 
+    if not ads_hub.has_variable(ads_var, pyads.PLCTYPE_INT):
+        ads_hub.record_missing_variable(ads_var, name, "select")
+        return
+
     entity = AdsSelect(ads_hub, ads_var, name, options)
 
     add_entities([entity])

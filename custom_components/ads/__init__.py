@@ -36,7 +36,7 @@ from .hub import AdsHub
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS = [Platform.UPDATE]
+PLATFORMS = [Platform.UPDATE, Platform.SENSOR]
 
 
 ADS_TYPEMAP = {

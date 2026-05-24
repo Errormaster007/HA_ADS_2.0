@@ -42,6 +42,10 @@ def setup_platform(
     name: str = config[CONF_NAME]
     device_class: BinarySensorDeviceClass | None = config.get(CONF_DEVICE_CLASS)
 
+    if not ads_hub.has_variable(ads_var, pyads.PLCTYPE_BOOL):
+        ads_hub.record_missing_variable(ads_var, name, "binary_sensor")
+        return
+
     ads_sensor = AdsBinarySensor(ads_hub, name, ads_var, device_class)
     add_entities([ads_sensor])
 

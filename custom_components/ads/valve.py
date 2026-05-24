@@ -44,6 +44,10 @@ def setup_platform(
     name: str = config[CONF_NAME]
     device_class: ValveDeviceClass | None = config.get(CONF_DEVICE_CLASS)
 
+    if not ads_hub.has_variable(ads_var, pyads.PLCTYPE_BOOL):
+        ads_hub.record_missing_variable(ads_var, name, "valve")
+        return
+
     entity = AdsValve(ads_hub, ads_var, name, device_class)
 
     add_entities([entity])

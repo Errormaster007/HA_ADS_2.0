@@ -34,7 +34,7 @@ class AdsEntity(Entity):
         plctype: type,
         state_key: str = STATE_KEY_STATE,
         factor: int | None = None,
-    ) -> None:
+    ) -> bool:
         """Register device notification."""
 
         def update(name, value):
@@ -55,14 +55,19 @@ class AdsEntity(Entity):
 
         self._event = asyncio.Event()
 
-        await self.hass.async_add_executor_job(
+        registered = await self.hass.async_add_executor_job(
             self._ads_hub.add_device_notification, ads_var, plctype, update
         )
+        if not registered:
+            return False
+
         try:
             async with timeout(10):
                 await self._event.wait()
         except TimeoutError:
             _LOGGER.debug("Variable %s: Timeout during first update", ads_var)
+
+        return True
 
     @property
     def available(self) -> bool:
