@@ -31,6 +31,36 @@ class AdsConfigFlow(ConfigFlow, domain="ads"):
         """Return the options flow for this handler."""
         return AdsOptionsFlow(config_entry)
 
+    async def async_step_import(
+        self, import_data: dict[str, Any]
+    ) -> ConfigFlowResult:
+        """Handle import from YAML configuration."""
+        net_id = import_data[CONF_DEVICE]
+        ip_address = import_data.get(CONF_IP_ADDRESS)
+        port = import_data[CONF_PORT]
+
+        unique_id = f"{net_id}:{port}:{ip_address or 'auto'}"
+        await self.async_set_unique_id(unique_id)
+        self._abort_if_unique_id_configured()
+
+        if not await self.hass.async_add_executor_job(
+            _validate_ads_connection,
+            net_id,
+            port,
+            ip_address,
+        ):
+            return self.async_abort(reason="cannot_connect")
+
+        return self.async_create_entry(
+            title=f"ADS {net_id} (migrated)",
+            data={
+                CONF_DEVICE: net_id,
+                CONF_PORT: port,
+                CONF_IP_ADDRESS: ip_address,
+                CONF_VERBOSE_LOGGING: import_data.get(CONF_VERBOSE_LOGGING, False),
+            },
+        )
+
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:

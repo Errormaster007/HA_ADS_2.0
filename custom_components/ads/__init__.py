@@ -115,6 +115,11 @@ def setup(hass: HomeAssistant, config: ConfigType) -> bool:
     if verbose_logging:
         _LOGGER.setLevel(logging.DEBUG)
 
+    # Schedule async migration from YAML to config entry
+    hass.async_create_task(
+        _async_migrate_yaml_to_entry(hass, conf)
+    )
+
     client = pyads.Connection(net_id, port, ip_address)
 
     try:
@@ -318,3 +323,59 @@ def _read_gvl_file(file_path: str) -> str:
         raise FileNotFoundError(file_path)
 
     return path.read_text(encoding="utf-8")
+
+
+async def _async_migrate_yaml_to_entry(hass: HomeAssistant, yaml_config: dict) -> None:
+    """Migrate YAML configuration to config entry if not already present."""
+    net_id: str = yaml_config.get(CONF_DEVICE, "")
+    port: int = yaml_config.get(CONF_PORT, 851)
+    ip_address: str | None = yaml_config.get(CONF_IP_ADDRESS)
+    verbose_logging: bool = yaml_config.get(CONF_VERBOSE_LOGGING, False)
+
+    if not net_id:
+        return
+
+    # Generate unique_id from YAML config
+    unique_id = f"{net_id}:{port}:{ip_address or 'auto'}"
+
+    # Check if config entry already exists for this unique_id
+    existing_entries = hass.config_entries.async_entries(DOMAIN)
+    for entry in existing_entries:
+        if entry.unique_id == unique_id:
+            _LOGGER.debug(
+                "Config entry already exists for YAML ADS config (NetID: %s, Port: %d)",
+                net_id,
+                port,
+            )
+            return
+
+    # Create config entry from YAML config
+    try:
+        _LOGGER.info(
+            "Migrating YAML ADS configuration to config entry (NetID: %s, Port: %d)",
+            net_id,
+            port,
+        )
+
+        hass.async_create_task(
+            hass.config_entries.flow.async_init(
+                DOMAIN,
+                context={"source": "import"},
+                data={
+                    CONF_DEVICE: net_id,
+                    CONF_PORT: port,
+                    CONF_IP_ADDRESS: ip_address,
+                    CONF_VERBOSE_LOGGING: verbose_logging,
+                },
+            )
+        )
+
+        _LOGGER.info(
+            "Successfully migrated YAML ADS configuration. "
+            "Please restart Home Assistant to complete the migration."
+        )
+    except Exception as err:
+        _LOGGER.error(
+            "Failed to migrate YAML ADS configuration: %s",
+            err,
+        )
