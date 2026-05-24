@@ -1,7 +1,7 @@
 {
   "domain": "ads",
   "name": "ADS",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "codeowners": ["@Errormaster007"],
   "documentation": "https://github.com/Errormaster007/ads-custom-component",
   "issue_tracker": "https://github.com/Errormaster007/ads-custom-component/issues",

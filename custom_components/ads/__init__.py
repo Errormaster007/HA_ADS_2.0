@@ -12,8 +12,7 @@ from homeassistant.const import (
     CONF_IP_ADDRESS,
     CONF_PORT,
     EVENT_HOMEASSISTANT_STOP,
-    EVENT_HOMEASSISTANT_STARTED,
-    EVENT_HOMEASSISTANT_STOP,
+    Platform,
 )
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers import config_validation as cv
@@ -36,6 +35,8 @@ from .gvl import parse_gvl_variables
 from .hub import AdsHub
 
 _LOGGER = logging.getLogger(__name__)
+
+PLATFORMS = [Platform.UPDATE]
 
 
 ADS_TYPEMAP = {
@@ -180,6 +181,7 @@ async def async_setup_entry(hass: HomeAssistant, entry) -> bool:
         hass.data[DATA_ADS] = hub
 
     await _register_services(hass)
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     entry.async_on_unload(entry.add_update_listener(async_reload_entry))
     return True
@@ -187,6 +189,7 @@ async def async_setup_entry(hass: HomeAssistant, entry) -> bool:
 
 async def async_unload_entry(hass: HomeAssistant, entry) -> bool:
     """Unload ADS config entry."""
+    unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     hubs = hass.data.get(DATA_ADS_HUBS, {})
     hub = hubs.pop(entry.entry_id, None)
     if hub is not None:
@@ -198,7 +201,7 @@ async def async_unload_entry(hass: HomeAssistant, entry) -> bool:
         else:
             hass.data.pop(DATA_ADS, None)
 
-    return True
+    return unload_ok
 
 
 async def async_reload_entry(hass: HomeAssistant, entry) -> None:
