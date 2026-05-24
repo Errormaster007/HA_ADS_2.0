@@ -106,7 +106,7 @@ CONFIG_SCHEMA = vol.Schema(
 SCHEMA_SERVICE_WRITE_DATA_BY_NAME = vol.Schema(
     {
         vol.Required(CONF_ADS_TYPE): vol.Coerce(AdsType),
-        vol.Required(CONF_ADS_VALUE): vol.Coerce(int),
+        vol.Required(CONF_ADS_VALUE): vol.Any(bool, int, float, str),
         vol.Required(CONF_ADS_VAR): cv.string,
         vol.Optional(CONF_ENTRY_ID): cv.string,
     }
@@ -128,6 +128,7 @@ def setup(hass: HomeAssistant, config: ConfigType) -> bool:
     hass.data.setdefault(DATA_ADS_HUBS, {})
 
     if DOMAIN not in config:
+        _register_services(hass)
         return True
 
     conf = config[DOMAIN]
@@ -166,6 +167,7 @@ def setup(hass: HomeAssistant, config: ConfigType) -> bool:
     hass.data[DATA_ADS] = ads
     hass.data[DATA_ADS_HUBS]["yaml"] = ads
     hass.bus.listen(EVENT_HOMEASSISTANT_STOP, ads.shutdown)
+    _register_services(hass)
 
     return True
 
@@ -236,7 +238,7 @@ async def async_setup_entry(hass: HomeAssistant, entry) -> bool:
                 _count_legacy_entities(migrated_legacy_entities),
             )
 
-    await _register_services(hass)
+    _register_services(hass)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     entry.async_on_unload(entry.add_update_listener(async_reload_entry))
@@ -266,7 +268,7 @@ async def async_reload_entry(hass: HomeAssistant, entry) -> None:
     await async_setup_entry(hass, entry)
 
 
-async def _register_services(hass: HomeAssistant) -> None:
+def _register_services(hass: HomeAssistant) -> None:
     """Register ADS services once."""
     if hass.services.has_service(DOMAIN, SERVICE_WRITE_DATA_BY_NAME):
         return
@@ -275,7 +277,7 @@ async def _register_services(hass: HomeAssistant) -> None:
         """Write a value to the connected ADS device."""
         ads_var: str = call.data[CONF_ADS_VAR]
         ads_type: AdsType = call.data[CONF_ADS_TYPE]
-        value: int = call.data[CONF_ADS_VALUE]
+        value = _coerce_service_value(call.data[CONF_ADS_VALUE], ads_type)
         entry_id: str | None = call.data.get(CONF_ENTRY_ID)
         hub = _resolve_hub(hass, entry_id)
 
@@ -283,6 +285,13 @@ async def _register_services(hass: HomeAssistant) -> None:
             _LOGGER.error("No ADS hub available for service call")
             return
 
+        _LOGGER.debug(
+            "ADS write service: hub=%s var=%s type=%s value=%s",
+            getattr(hub, "_hub_id", "unknown"),
+            ads_var,
+            ads_type,
+            value,
+        )
         await hass.async_add_executor_job(hub.write_by_name, ads_var, value, ADS_TYPEMAP[ads_type])
 
     async def handle_import_gvl(call: ServiceCall) -> None:
@@ -352,18 +361,43 @@ async def _register_services(hass: HomeAssistant) -> None:
 
 def _resolve_hub(hass: HomeAssistant, entry_id: str | None) -> AdsHub | None:
     """Resolve target ADS hub from optional config entry id."""
+    hubs: Mapping[str, AdsHub] = hass.data.get(DATA_ADS_HUBS, {})
+
     if entry_id:
-        return hass.data.get(DATA_ADS_HUBS, {}).get(entry_id)
+        return hubs.get(entry_id)
+
+    # Prefer config-entry hubs over legacy YAML hub when no explicit entry id is provided.
+    non_yaml_hubs = {hub_entry_id: hub for hub_entry_id, hub in hubs.items() if hub_entry_id != "yaml"}
+    if non_yaml_hubs:
+        return next(iter(non_yaml_hubs.values()))
 
     default_hub = hass.data.get(DATA_ADS)
     if default_hub is not None:
         return default_hub
 
-    hubs: Mapping[str, AdsHub] = hass.data.get(DATA_ADS_HUBS, {})
     if not hubs:
         return None
 
     return next(iter(hubs.values()))
+
+
+def _coerce_service_value(value: bool | int | float | str, ads_type: AdsType) -> Any:
+    """Convert service value into the expected Python type for the ADS datatype."""
+    if ads_type == AdsType.STRING:
+        return str(value)
+
+    if ads_type == AdsType.BOOL:
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, (int, float)):
+            return bool(value)
+        normalized = str(value).strip().lower()
+        return normalized in {"1", "true", "yes", "on"}
+
+    if ads_type in {AdsType.REAL, AdsType.LREAL}:
+        return float(value)
+
+    return int(value)
 
 
 def _resolve_entry(hass: HomeAssistant, entry_id: str | None):
