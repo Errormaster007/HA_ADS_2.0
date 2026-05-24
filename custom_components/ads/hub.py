@@ -149,12 +149,6 @@ class AdsHub:
 
                 return True
 
-
-def _is_missing_symbol_error(err: pyads.ADSError) -> bool:
-    """Return True if an ADS error means that a symbol does not exist."""
-    message = str(err).lower()
-    return "symbol not found" in message or "1808" in message
-
     def _device_notification_callback(self, notification, name):
         """Handle device notifications."""
         contents = notification.contents
@@ -219,3 +213,9 @@ def _is_missing_symbol_error(err: pyads.ADSError) -> bool:
         )
 
         notification_item.callback(notification_item.name, value)
+
+
+def _is_missing_symbol_error(err: pyads.ADSError) -> bool:
+    """Return True if an ADS error means that a symbol does not exist."""
+    message = str(err).lower()
+    return "symbol not found" in message or "1808" in message
