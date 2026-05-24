@@ -4,14 +4,53 @@
       "already_configured": "This ADS target is already configured."
     },
     "error": {
-      "cannot_connect": "Failed to connect to the ADS target."
+      "cannot_connect": "Failed to connect to the ADS target.",
+      "invalid_subnet": "Subnet is invalid. Example: 192.168.0.0/24",
+      "no_ads_hosts": "No reachable ADS router endpoint found in the scanned range."
     },
     "step": {
+      "auto_discovery": {
+        "description": "Choose how ADS targets should be discovered."
+      },
+      "network_scan": {
+        "data": {
+          "port": "ADS runtime port",
+          "scan_limit": "Maximum hosts to probe",
+          "subnet": "Subnet (CIDR)",
+          "verbose_logging": "Enable verbose logging"
+        },
+        "description": "Probe the configured subnet for hosts with an open ADS router port."
+      },
+      "network_pick": {
+        "data": {
+          "device": "AMS Net ID",
+          "ip_address": "Discovered host",
+          "port": "ADS port",
+          "search_legacy_yaml": "Search for local legacy YAML config",
+          "verbose_logging": "Enable verbose logging"
+        },
+        "description": "Select a discovered host and confirm connection parameters."
+      },
+      "network_legacy_choice": {
+        "data": {
+          "use_legacy_yaml": "Use values from discovered legacy YAML config"
+        },
+        "description": "A legacy ADS YAML config was found. Choose whether to apply its values."
+      },
       "user": {
+        "description": "Set up ADS for your Beckhoff PLC.",
+        "menu_options": {
+          "auto_discovery": "Auto discovery",
+          "manual": "Manual setup",
+          "yaml_import": "Import from legacy YAML"
+        }
+      },
+      "manual": {
         "data": {
           "device": "AMS Net ID",
           "ip_address": "IP address",
           "port": "ADS port",
+          "scan_legacy_yaml": "Search and prefill from local legacy YAML",
           "verbose_logging": "Enable verbose logging"
         },
         "description": "Configure the ADS connection to your Beckhoff PLC."
