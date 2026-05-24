@@ -21,6 +21,7 @@ Oder manuell als Custom Repository:
    Kategorie: Integration
 3. **ADS – Beckhoff TwinCAT** installieren → Home Assistant neu starten
 4. Einstellungen → Geräte & Dienste → **ADS** hinzufügen
+5. Nach der Installation Home Assistant einmal neu starten, falls die Integration nicht sofort erscheint.
 
 ## Installation (manuell)
 
@@ -29,6 +30,7 @@ Oder manuell als Custom Repository:
    - Ziel: `<DEIN_CONFIG_PFAD>/custom_components/ads`
 3. Home Assistant starten.
 4. Unter Einstellungen -> Geraete & Dienste die Integration `ADS` hinzufuegen.
+5. Wenn die Integration nicht direkt sichtbar ist, Home Assistant einmal neu starten.
 
 ## Installation (PowerShell)
 
