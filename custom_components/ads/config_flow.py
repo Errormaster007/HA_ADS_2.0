@@ -387,25 +387,37 @@ class AdsConfigFlow(ConfigFlow, domain="ads"):
 
         _apply_debug_logging(bool(self._yaml_defaults.get(CONF_VERBOSE_LOGGING, False)))
         _LOGGER.debug("ADS config flow: yaml_import defaults=%s", self._yaml_defaults)
-        return await self.async_step_manual()
+        return self.async_show_form(
+            step_id="manual",
+            data_schema=self._user_data_schema(
+                self._manual_form_defaults(self._yaml_defaults),
+                include_scan_legacy=False,
+            ),
+            errors={},
+        )
 
     @staticmethod
-    def _user_data_schema(defaults: Mapping[str, Any]) -> vol.Schema:
+    def _user_data_schema(
+        defaults: Mapping[str, Any],
+        include_scan_legacy: bool = True,
+    ) -> vol.Schema:
         """Build the setup form schema with optional YAML defaults."""
-        return vol.Schema(
-            {
-                vol.Required(CONF_DEVICE, default=defaults.get(CONF_DEVICE, "")): str,
-                vol.Required(CONF_PORT, default=defaults.get(CONF_PORT, 851)): int,
-                vol.Optional(
-                    CONF_IP_ADDRESS, default=defaults.get(CONF_IP_ADDRESS, "")
-                ): str,
-                vol.Required(
-                    CONF_VERBOSE_LOGGING,
-                    default=defaults.get(CONF_VERBOSE_LOGGING, False),
-                ): bool,
-                vol.Optional("scan_legacy_yaml", default=False): bool,
-            }
-        )
+        schema: dict[Any, Any] = {
+            vol.Required(CONF_DEVICE, default=defaults.get(CONF_DEVICE, "")): str,
+            vol.Required(CONF_PORT, default=defaults.get(CONF_PORT, 851)): int,
+            vol.Optional(
+                CONF_IP_ADDRESS, default=defaults.get(CONF_IP_ADDRESS, "")
+            ): str,
+            vol.Required(
+                CONF_VERBOSE_LOGGING,
+                default=defaults.get(CONF_VERBOSE_LOGGING, False),
+            ): bool,
+        }
+
+        if include_scan_legacy:
+            schema[vol.Optional("scan_legacy_yaml", default=False)] = bool
+
+        return vol.Schema(schema)
 
     @staticmethod
     def _manual_form_defaults(defaults: Mapping[str, Any]) -> dict[str, Any]:
