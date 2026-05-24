@@ -1,5 +1,7 @@
 """Support for ADS sensors."""
 
+from __future__ import annotations
+
 import voluptuous as vol
 
 from homeassistant.components.sensor import (
@@ -18,7 +20,15 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType, StateType
 
 from . import ADS_TYPEMAP, CONF_ADS_FACTOR, CONF_ADS_TYPE
-from .const import CONF_ADS_VAR, DATA_ADS, DATA_ADS_HUBS, STATE_KEY_STATE, AdsType, DOMAIN
+from .const import (
+    CONF_ADS_VAR,
+    CONF_LEGACY_ENTITIES,
+    DATA_ADS,
+    DATA_ADS_HUBS,
+    DOMAIN,
+    STATE_KEY_STATE,
+    AdsType,
+)
 from .entity import AdsEntity
 from .hub import AdsHub
 
@@ -63,10 +73,16 @@ def setup_platform(
 ) -> None:
     """Set up an ADS sensor device."""
     ads_hub = hass.data[DATA_ADS]
+    entity = _build_sensor_entity(ads_hub, config)
+    if entity is not None:
+        add_entities([entity])
 
+
+def _build_sensor_entity(ads_hub: AdsHub, config: ConfigType) -> AdsSensor | None:
+    """Build one ADS sensor from YAML style config."""
     ads_var: str = config[CONF_ADS_VAR]
-    ads_type: AdsType = config[CONF_ADS_TYPE]
-    name: str = config[CONF_NAME]
+    ads_type: AdsType = config.get(CONF_ADS_TYPE, AdsType.INT)
+    name: str = config.get(CONF_NAME, DEFAULT_NAME)
     factor: int | None = config.get(CONF_ADS_FACTOR)
     device_class: SensorDeviceClass | None = config.get(CONF_DEVICE_CLASS)
     state_class: SensorStateClass | None = config.get(CONF_STATE_CLASS)
@@ -74,9 +90,9 @@ def setup_platform(
 
     if not ads_hub.has_variable(ads_var, ADS_TYPEMAP[ads_type]):
         ads_hub.record_missing_variable(ads_var, name, "sensor")
-        return
+        return None
 
-    entity = AdsSensor(
+    return AdsSensor(
         ads_hub,
         ads_var,
         ads_type,
@@ -87,16 +103,26 @@ def setup_platform(
         unit_of_measurement,
     )
 
-    add_entities([entity])
-
 
 async def async_setup_entry(
     hass: HomeAssistant,
     entry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Set up the ADS debug sensor for config entry based setups."""
-    async_add_entities([AdsDebugMissingVariablesSensor(hass, entry.entry_id)])
+    """Set up migrated ADS sensors and one debug sensor for config entry setups."""
+    entities: list[SensorEntity] = [AdsDebugMissingVariablesSensor(hass, entry.entry_id)]
+
+    ads_hub = hass.data.get(DATA_ADS_HUBS, {}).get(entry.entry_id)
+    if ads_hub is not None:
+        legacy_entities = entry.options.get(CONF_LEGACY_ENTITIES, {})
+        platform_entities = legacy_entities.get("sensor", [])
+        entities.extend(
+            entity
+            for config in platform_entities
+            if (entity := _build_sensor_entity(ads_hub, config)) is not None
+        )
+
+    async_add_entities(entities)
 
 
 class AdsSensor(AdsEntity, SensorEntity):

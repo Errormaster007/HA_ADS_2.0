@@ -1,5 +1,7 @@
 """Support for ADS valves."""
 
+from __future__ import annotations
+
 import pyads
 import voluptuous as vol
 
@@ -16,7 +18,7 @@ from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 
-from .const import CONF_ADS_VAR, DATA_ADS
+from .const import CONF_ADS_VAR, CONF_LEGACY_ENTITIES, DATA_ADS, DATA_ADS_HUBS
 from .entity import AdsEntity
 from .hub import AdsHub
 
@@ -39,18 +41,43 @@ def setup_platform(
 ) -> None:
     """Set up an ADS valve device."""
     ads_hub = hass.data[DATA_ADS]
+    entity = _build_valve_entity(ads_hub, config)
+    if entity is not None:
+        add_entities([entity])
 
+
+async def async_setup_entry(
+    hass: HomeAssistant,
+    entry,
+    async_add_entities: AddEntitiesCallback,
+) -> None:
+    """Set up migrated legacy ADS valves from config entry options."""
+    ads_hub = hass.data.get(DATA_ADS_HUBS, {}).get(entry.entry_id)
+    if ads_hub is None:
+        return
+
+    legacy_entities = entry.options.get(CONF_LEGACY_ENTITIES, {})
+    platform_entities = legacy_entities.get("valve", [])
+    entities = [
+        entity
+        for config in platform_entities
+        if (entity := _build_valve_entity(ads_hub, config)) is not None
+    ]
+    if entities:
+        async_add_entities(entities)
+
+
+def _build_valve_entity(ads_hub: AdsHub, config: ConfigType) -> AdsValve | None:
+    """Build one ADS valve from YAML style config."""
     ads_var: str = config[CONF_ADS_VAR]
-    name: str = config[CONF_NAME]
+    name: str = config.get(CONF_NAME, DEFAULT_NAME)
     device_class: ValveDeviceClass | None = config.get(CONF_DEVICE_CLASS)
 
     if not ads_hub.has_variable(ads_var, pyads.PLCTYPE_BOOL):
         ads_hub.record_missing_variable(ads_var, name, "valve")
-        return
+        return None
 
-    entity = AdsValve(ads_hub, ads_var, name, device_class)
-
-    add_entities([entity])
+    return AdsValve(ads_hub, ads_var, name, device_class)
 
 
 class AdsValve(AdsEntity, ValveEntity):

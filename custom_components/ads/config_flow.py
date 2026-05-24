@@ -14,7 +14,7 @@ import voluptuous as vol
 
 from homeassistant.config import load_yaml_config_file
 from homeassistant.config_entries import ConfigFlow, ConfigFlowResult, OptionsFlow
-from homeassistant.const import CONF_DEVICE, CONF_IP_ADDRESS, CONF_PORT
+from homeassistant.const import CONF_DEVICE, CONF_IP_ADDRESS, CONF_PLATFORM, CONF_PORT
 from homeassistant.core import callback
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import selector
@@ -23,6 +23,7 @@ from .const import (
     CONF_GVL,
     CONF_GVL_IMPORT_REPLACE,
     CONF_GVL_VARIABLES,
+    CONF_LEGACY_ENTITIES,
     CONF_VERBOSE_LOGGING,
     DOMAIN,
 )
@@ -294,6 +295,11 @@ class AdsConfigFlow(ConfigFlow, domain="ads"):
             ):
                 errors["base"] = "cannot_connect"
             else:
+                if user_input["use_legacy_yaml"] and self._yaml_defaults:
+                    entry_data[CONF_LEGACY_ENTITIES] = self._yaml_defaults.get(
+                        CONF_LEGACY_ENTITIES,
+                        {},
+                    )
                 return self.async_create_entry(title=f"ADS {net_id}", data=entry_data)
 
         return self.async_show_form(
@@ -356,6 +362,9 @@ class AdsConfigFlow(ConfigFlow, domain="ads"):
                         CONF_PORT: port,
                         CONF_IP_ADDRESS: ip_address,
                         CONF_VERBOSE_LOGGING: user_input[CONF_VERBOSE_LOGGING],
+                        CONF_LEGACY_ENTITIES: self._yaml_defaults.get(CONF_LEGACY_ENTITIES, {})
+                        if self._yaml_defaults
+                        else {},
                     },
                 )
 
@@ -604,6 +613,7 @@ def _discover_yaml_ads_config(config_dir: str) -> dict[str, Any] | None:
             CONF_PORT: port_int,
             CONF_IP_ADDRESS: ads_config.get(CONF_IP_ADDRESS) or None,
             CONF_VERBOSE_LOGGING: bool(ads_config.get(CONF_VERBOSE_LOGGING, False)),
+            CONF_LEGACY_ENTITIES: _collect_legacy_entities_from_loaded_yaml(loaded_config),
         }
 
     _LOGGER.debug("ADS config flow: no valid ADS YAML config found")
@@ -638,3 +648,55 @@ def _find_ads_config(data: Any) -> Any:
                 return ads_config
 
     return None
+
+
+def _collect_legacy_entities_from_loaded_yaml(
+    loaded_config: Any,
+) -> dict[str, list[dict[str, Any]]]:
+    """Collect legacy ADS platform entities from one loaded YAML document."""
+    if not isinstance(loaded_config, Mapping):
+        return {}
+
+    legacy_platforms = (
+        "binary_sensor",
+        "cover",
+        "light",
+        "select",
+        "sensor",
+        "switch",
+        "valve",
+    )
+    collected: dict[str, list[dict[str, Any]]] = {}
+
+    for platform in legacy_platforms:
+        platform_config = loaded_config.get(platform)
+        if platform_config is None:
+            continue
+
+        if isinstance(platform_config, Mapping):
+            candidates = [platform_config]
+        elif isinstance(platform_config, Sequence) and not isinstance(
+            platform_config,
+            (str, bytes, bytearray),
+        ):
+            candidates = list(platform_config)
+        else:
+            continue
+
+        items: list[dict[str, Any]] = []
+        for candidate in candidates:
+            if not isinstance(candidate, Mapping):
+                continue
+
+            if candidate.get(CONF_PLATFORM) != DOMAIN:
+                continue
+
+            cleaned = {
+                key: value for key, value in candidate.items() if key != CONF_PLATFORM
+            }
+            items.append(dict(cleaned))
+
+        if items:
+            collected[platform] = items
+
+    return collected

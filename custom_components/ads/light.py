@@ -1,5 +1,7 @@
 """Support for ADS light sources."""
 
+from __future__ import annotations
+
 from typing import Any
 
 import pyads
@@ -21,7 +23,7 @@ from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 
-from .const import CONF_ADS_VAR, DATA_ADS, STATE_KEY_STATE
+from .const import CONF_ADS_VAR, CONF_LEGACY_ENTITIES, DATA_ADS, DATA_ADS_HUBS, STATE_KEY_STATE
 from .entity import AdsEntity
 from .hub import AdsHub
 
@@ -53,30 +55,53 @@ def setup_platform(
 ) -> None:
     """Set up the light platform for ADS."""
     ads_hub = hass.data[DATA_ADS]
+    entity = _build_light_entity(ads_hub, config)
+    if entity is not None:
+        add_entities([entity])
 
+
+async def async_setup_entry(
+    hass: HomeAssistant,
+    entry,
+    async_add_entities: AddEntitiesCallback,
+) -> None:
+    """Set up migrated legacy ADS lights from config entry options."""
+    ads_hub = hass.data.get(DATA_ADS_HUBS, {}).get(entry.entry_id)
+    if ads_hub is None:
+        return
+
+    legacy_entities = entry.options.get(CONF_LEGACY_ENTITIES, {})
+    platform_entities = legacy_entities.get("light", [])
+    entities = [
+        entity
+        for config in platform_entities
+        if (entity := _build_light_entity(ads_hub, config)) is not None
+    ]
+    if entities:
+        async_add_entities(entities)
+
+
+def _build_light_entity(ads_hub: AdsHub, config: ConfigType) -> AdsLight | None:
+    """Build one ADS light from YAML style config."""
     ads_var_enable: str = config[CONF_ADS_VAR]
     ads_var_brightness: str | None = config.get(CONF_ADS_VAR_BRIGHTNESS)
     ads_var_color_temp_kelvin: str | None = config.get(CONF_ADS_VAR_COLOR_TEMP_KELVIN)
     min_color_temp_kelvin: int | None = config.get(CONF_MIN_COLOR_TEMP_KELVIN)
     max_color_temp_kelvin: int | None = config.get(CONF_MAX_COLOR_TEMP_KELVIN)
-    name: str = config[CONF_NAME]
+    name: str = config.get(CONF_NAME, DEFAULT_NAME)
 
     if not ads_hub.has_variable(ads_var_enable, pyads.PLCTYPE_BOOL):
         ads_hub.record_missing_variable(ads_var_enable, name, "light")
-        return
+        return None
 
-    add_entities(
-        [
-            AdsLight(
-                ads_hub,
-                ads_var_enable,
-                ads_var_brightness,
-                ads_var_color_temp_kelvin,
-                min_color_temp_kelvin,
-                max_color_temp_kelvin,
-                name,
-            )
-        ]
+    return AdsLight(
+        ads_hub,
+        ads_var_enable,
+        ads_var_brightness,
+        ads_var_color_temp_kelvin,
+        min_color_temp_kelvin,
+        max_color_temp_kelvin,
+        name,
     )
 
 

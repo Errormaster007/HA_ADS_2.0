@@ -3,6 +3,7 @@
 from collections.abc import Mapping
 import logging
 from pathlib import Path
+from typing import Any
 
 import pyads
 import voluptuous as vol
@@ -10,6 +11,7 @@ import voluptuous as vol
 from homeassistant.const import (
     CONF_DEVICE,
     CONF_IP_ADDRESS,
+    CONF_PLATFORM,
     CONF_PORT,
     EVENT_HOMEASSISTANT_STOP,
     Platform,
@@ -25,6 +27,7 @@ from .const import (
     CONF_GVL_FILE_PATH,
     CONF_GVL_IMPORT_REPLACE,
     CONF_GVL_VARIABLES,
+    CONF_LEGACY_ENTITIES,
     CONF_VERBOSE_LOGGING,
     DATA_ADS,
     DATA_ADS_HUBS,
@@ -36,7 +39,26 @@ from .hub import AdsHub
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS = [Platform.UPDATE, Platform.SENSOR]
+PLATFORMS = [
+    Platform.BINARY_SENSOR,
+    Platform.COVER,
+    Platform.LIGHT,
+    Platform.SELECT,
+    Platform.SENSOR,
+    Platform.SWITCH,
+    Platform.UPDATE,
+    Platform.VALVE,
+]
+
+LEGACY_ENTITY_PLATFORMS = (
+    "binary_sensor",
+    "cover",
+    "light",
+    "select",
+    "sensor",
+    "switch",
+    "valve",
+)
 
 
 ADS_TYPEMAP = {
@@ -109,6 +131,13 @@ def setup(hass: HomeAssistant, config: ConfigType) -> bool:
         return True
 
     conf = config[DOMAIN]
+    legacy_entities = _collect_legacy_entity_configs(config)
+    if legacy_entities:
+        hass.data[f"{DOMAIN}_legacy_entities"] = legacy_entities
+        _LOGGER.info(
+            "Detected %d legacy ADS entities for migration",
+            _count_legacy_entities(legacy_entities),
+        )
 
     net_id = conf[CONF_DEVICE]
     ip_address = conf.get(CONF_IP_ADDRESS)
@@ -179,6 +208,33 @@ async def async_setup_entry(hass: HomeAssistant, entry) -> bool:
     hass.data[DATA_ADS_HUBS][entry.entry_id] = hub
     if DATA_ADS not in hass.data:
         hass.data[DATA_ADS] = hub
+
+    # Move migrated legacy entities from entry data to options on first setup.
+    legacy_entities_data = entry.data.get(CONF_LEGACY_ENTITIES)
+    if isinstance(legacy_entities_data, Mapping):
+        migrated_legacy_entities = {
+            platform: list(items)
+            for platform, items in legacy_entities_data.items()
+            if platform in LEGACY_ENTITY_PLATFORMS and isinstance(items, list)
+        }
+        if migrated_legacy_entities:
+            merged_options = dict(entry.options)
+            existing_legacy_entities = merged_options.get(CONF_LEGACY_ENTITIES, {})
+            if isinstance(existing_legacy_entities, Mapping):
+                for platform, items in migrated_legacy_entities.items():
+                    if platform not in existing_legacy_entities:
+                        existing_legacy_entities[platform] = items
+                merged_options[CONF_LEGACY_ENTITIES] = dict(existing_legacy_entities)
+            else:
+                merged_options[CONF_LEGACY_ENTITIES] = migrated_legacy_entities
+
+            new_data = dict(entry.data)
+            new_data.pop(CONF_LEGACY_ENTITIES, None)
+            hass.config_entries.async_update_entry(entry, data=new_data, options=merged_options)
+            _LOGGER.info(
+                "Migrated %d legacy ADS entities into config entry options",
+                _count_legacy_entities(migrated_legacy_entities),
+            )
 
     await _register_services(hass)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
@@ -340,6 +396,9 @@ async def _async_migrate_yaml_to_entry(hass: HomeAssistant, yaml_config: dict) -
     port: int = yaml_config.get(CONF_PORT, 851)
     ip_address: str | None = yaml_config.get(CONF_IP_ADDRESS)
     verbose_logging: bool = yaml_config.get(CONF_VERBOSE_LOGGING, False)
+    legacy_entities: dict[str, list[dict[str, Any]]] = hass.data.pop(
+        f"{DOMAIN}_legacy_entities", {}
+    )
 
     if not net_id:
         return
@@ -377,6 +436,25 @@ async def _async_migrate_yaml_to_entry(hass: HomeAssistant, yaml_config: dict) -
             },
         )
 
+        if legacy_entities:
+            created_entry = next(
+                (
+                    item
+                    for item in hass.config_entries.async_entries(DOMAIN)
+                    if item.unique_id == unique_id
+                ),
+                None,
+            )
+            if created_entry is not None:
+                merged_options = dict(created_entry.options)
+                merged_options[CONF_LEGACY_ENTITIES] = legacy_entities
+                hass.config_entries.async_update_entry(created_entry, options=merged_options)
+                _LOGGER.info(
+                    "Migrated %d legacy ADS entities into config entry '%s'",
+                    _count_legacy_entities(legacy_entities),
+                    created_entry.title,
+                )
+
         _LOGGER.info(
             "Successfully migrated YAML ADS configuration to config entry (NetID: %s, Port: %d)",
             net_id,
@@ -387,3 +465,41 @@ async def _async_migrate_yaml_to_entry(hass: HomeAssistant, yaml_config: dict) -
             "Failed to migrate YAML ADS configuration: %s",
             err,
         )
+
+
+def _collect_legacy_entity_configs(config: ConfigType) -> dict[str, list[dict[str, Any]]]:
+    """Collect all legacy ADS platform entities from YAML config."""
+    collected: dict[str, list[dict[str, Any]]] = {}
+
+    for platform in LEGACY_ENTITY_PLATFORMS:
+        platform_config = config.get(platform)
+        if platform_config is None:
+            continue
+
+        if isinstance(platform_config, Mapping):
+            candidates = [platform_config]
+        elif isinstance(platform_config, list):
+            candidates = platform_config
+        else:
+            continue
+
+        items: list[dict[str, Any]] = []
+        for candidate in candidates:
+            if not isinstance(candidate, Mapping):
+                continue
+
+            if candidate.get(CONF_PLATFORM) != DOMAIN:
+                continue
+
+            cleaned = {key: value for key, value in candidate.items() if key != CONF_PLATFORM}
+            items.append(dict(cleaned))
+
+        if items:
+            collected[platform] = items
+
+    return collected
+
+
+def _count_legacy_entities(legacy_entities: Mapping[str, list[dict[str, Any]]]) -> int:
+    """Return the number of collected legacy entities."""
+    return sum(len(items) for items in legacy_entities.values())

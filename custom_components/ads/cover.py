@@ -1,5 +1,7 @@
 """Support for ADS covers."""
 
+from __future__ import annotations
+
 from typing import Any
 
 import pyads
@@ -19,7 +21,7 @@ from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 
-from .const import CONF_ADS_VAR, DATA_ADS, STATE_KEY_STATE
+from .const import CONF_ADS_VAR, CONF_LEGACY_ENTITIES, DATA_ADS, DATA_ADS_HUBS, STATE_KEY_STATE
 from .entity import AdsEntity
 from .hub import AdsHub
 
@@ -55,34 +57,57 @@ def setup_platform(
 ) -> None:
     """Set up the cover platform for ADS."""
     ads_hub = hass.data[DATA_ADS]
+    entity = _build_cover_entity(ads_hub, config)
+    if entity is not None:
+        add_entities([entity])
 
+
+async def async_setup_entry(
+    hass: HomeAssistant,
+    entry,
+    async_add_entities: AddEntitiesCallback,
+) -> None:
+    """Set up migrated legacy ADS covers from config entry options."""
+    ads_hub = hass.data.get(DATA_ADS_HUBS, {}).get(entry.entry_id)
+    if ads_hub is None:
+        return
+
+    legacy_entities = entry.options.get(CONF_LEGACY_ENTITIES, {})
+    platform_entities = legacy_entities.get("cover", [])
+    entities = [
+        entity
+        for config in platform_entities
+        if (entity := _build_cover_entity(ads_hub, config)) is not None
+    ]
+    if entities:
+        async_add_entities(entities)
+
+
+def _build_cover_entity(ads_hub: AdsHub, config: ConfigType) -> AdsCover | None:
+    """Build one ADS cover from YAML style config."""
     ads_var_is_closed: str = config[CONF_ADS_VAR]
     ads_var_position: str | None = config.get(CONF_ADS_VAR_POSITION)
     ads_var_pos_set: str | None = config.get(CONF_ADS_VAR_SET_POS)
     ads_var_open: str | None = config.get(CONF_ADS_VAR_OPEN)
     ads_var_close: str | None = config.get(CONF_ADS_VAR_CLOSE)
     ads_var_stop: str | None = config.get(CONF_ADS_VAR_STOP)
-    name: str = config[CONF_NAME]
+    name: str = config.get(CONF_NAME, DEFAULT_NAME)
     device_class: CoverDeviceClass | None = config.get(CONF_DEVICE_CLASS)
 
     if not ads_hub.has_variable(ads_var_is_closed, pyads.PLCTYPE_BOOL):
         ads_hub.record_missing_variable(ads_var_is_closed, name, "cover")
-        return
+        return None
 
-    add_entities(
-        [
-            AdsCover(
-                ads_hub,
-                ads_var_is_closed,
-                ads_var_position,
-                ads_var_pos_set,
-                ads_var_open,
-                ads_var_close,
-                ads_var_stop,
-                name,
-                device_class,
-            )
-        ]
+    return AdsCover(
+        ads_hub,
+        ads_var_is_closed,
+        ads_var_position,
+        ads_var_pos_set,
+        ads_var_open,
+        ads_var_close,
+        ads_var_stop,
+        name,
+        device_class,
     )
 
 

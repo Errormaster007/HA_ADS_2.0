@@ -1,5 +1,7 @@
 """Support for ADS switch platform."""
 
+from __future__ import annotations
+
 from typing import Any
 
 import pyads
@@ -15,7 +17,7 @@ from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 
-from .const import CONF_ADS_VAR, DATA_ADS, STATE_KEY_STATE
+from .const import CONF_ADS_VAR, CONF_LEGACY_ENTITIES, DATA_ADS, DATA_ADS_HUBS, STATE_KEY_STATE
 from .entity import AdsEntity
 
 DEFAULT_NAME = "ADS Switch"
@@ -36,15 +38,42 @@ def setup_platform(
 ) -> None:
     """Set up switch platform for ADS."""
     ads_hub = hass.data[DATA_ADS]
+    entity = _build_switch_entity(ads_hub, config)
+    if entity is not None:
+        add_entities([entity])
 
-    name: str = config[CONF_NAME]
+
+async def async_setup_entry(
+    hass: HomeAssistant,
+    entry,
+    async_add_entities: AddEntitiesCallback,
+) -> None:
+    """Set up migrated legacy ADS switches from config entry options."""
+    ads_hub = hass.data.get(DATA_ADS_HUBS, {}).get(entry.entry_id)
+    if ads_hub is None:
+        return
+
+    legacy_entities = entry.options.get(CONF_LEGACY_ENTITIES, {})
+    platform_entities = legacy_entities.get("switch", [])
+    entities = [
+        entity
+        for config in platform_entities
+        if (entity := _build_switch_entity(ads_hub, config)) is not None
+    ]
+    if entities:
+        async_add_entities(entities)
+
+
+def _build_switch_entity(ads_hub, config: ConfigType) -> AdsSwitch | None:
+    """Build one ADS switch from YAML style config."""
+    name: str = config.get(CONF_NAME, DEFAULT_NAME)
     ads_var: str = config[CONF_ADS_VAR]
 
     if not ads_hub.has_variable(ads_var, pyads.PLCTYPE_BOOL):
         ads_hub.record_missing_variable(ads_var, name, "switch")
-        return
+        return None
 
-    add_entities([AdsSwitch(ads_hub, name, ads_var)])
+    return AdsSwitch(ads_hub, name, ads_var)
 
 
 class AdsSwitch(AdsEntity, SwitchEntity):

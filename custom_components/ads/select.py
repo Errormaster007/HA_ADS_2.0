@@ -1,5 +1,7 @@
 """Support for ADS select entities."""
 
+from __future__ import annotations
+
 import pyads
 import voluptuous as vol
 
@@ -13,7 +15,7 @@ from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 
-from .const import CONF_ADS_VAR, DATA_ADS
+from .const import CONF_ADS_VAR, CONF_LEGACY_ENTITIES, DATA_ADS, DATA_ADS_HUBS
 from .entity import AdsEntity
 from .hub import AdsHub
 
@@ -39,18 +41,46 @@ def setup_platform(
 ) -> None:
     """Set up an ADS select device."""
     ads_hub = hass.data[DATA_ADS]
+    entity = _build_select_entity(ads_hub, config)
+    if entity is not None:
+        add_entities([entity])
 
+
+async def async_setup_entry(
+    hass: HomeAssistant,
+    entry,
+    async_add_entities: AddEntitiesCallback,
+) -> None:
+    """Set up migrated legacy ADS selects from config entry options."""
+    ads_hub = hass.data.get(DATA_ADS_HUBS, {}).get(entry.entry_id)
+    if ads_hub is None:
+        return
+
+    legacy_entities = entry.options.get(CONF_LEGACY_ENTITIES, {})
+    platform_entities = legacy_entities.get("select", [])
+    entities = [
+        entity
+        for config in platform_entities
+        if (entity := _build_select_entity(ads_hub, config)) is not None
+    ]
+    if entities:
+        async_add_entities(entities)
+
+
+def _build_select_entity(ads_hub: AdsHub, config: ConfigType) -> AdsSelect | None:
+    """Build one ADS select from YAML style config."""
     ads_var: str = config[CONF_ADS_VAR]
-    name: str = config[CONF_NAME]
-    options: list[str] = config[CONF_OPTIONS]
+    name: str = config.get(CONF_NAME, DEFAULT_NAME)
+    options: list[str] = config.get(CONF_OPTIONS, [])
+
+    if not options:
+        return None
 
     if not ads_hub.has_variable(ads_var, pyads.PLCTYPE_INT):
         ads_hub.record_missing_variable(ads_var, name, "select")
-        return
+        return None
 
-    entity = AdsSelect(ads_hub, ads_var, name, options)
-
-    add_entities([entity])
+    return AdsSelect(ads_hub, ads_var, name, options)
 
 
 class AdsSelect(AdsEntity, SelectEntity):
