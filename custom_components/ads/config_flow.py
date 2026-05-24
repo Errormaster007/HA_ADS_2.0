@@ -92,7 +92,9 @@ class AdsConfigFlow(ConfigFlow, domain="ads"):
             menu_options=["auto_discovery", "manual", "yaml_import"],
         )
 
-    async def async_step_auto_discovery(self) -> ConfigFlowResult:
+    async def async_step_auto_discovery(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
         """Handle auto discovery entrypoint."""
         self._yaml_defaults = await self.hass.async_add_executor_job(
             _discover_yaml_ads_config, self.hass.config.config_dir
