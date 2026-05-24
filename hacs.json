@@ -1,9 +1,5 @@
 {
-  "name": "ADS (Custom Test Build)",
-  "content_in_root": false,
+  "name": "ADS - Beckhoff TwinCAT",
   "render_readme": true,
-  "country": [
-    "DE"
-  ],
-  "homeassistant": ">=2025.1.0"
+  "homeassistant": "2024.1.0"
 }
