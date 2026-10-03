@@ -1,6 +1,7 @@
 """Support for Automation Device Specification (ADS)."""
 
 from collections.abc import Mapping
+from functools import partial
 import logging
 from pathlib import Path
 from typing import Any
@@ -16,7 +17,7 @@ from homeassistant.const import (
     EVENT_HOMEASSISTANT_STOP,
     Platform,
 )
-from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.core import Event, HomeAssistant, ServiceCall
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.typing import ConfigType
 
@@ -167,9 +168,7 @@ def setup(hass: HomeAssistant, config: ConfigType) -> bool:
 
     hass.data[DATA_ADS] = ads
     hass.data[DATA_ADS_HUBS]["yaml"] = ads
-    hass.data[f"{DOMAIN}_yaml_shutdown_unsub"] = hass.bus.listen(
-        EVENT_HOMEASSISTANT_STOP, ads.shutdown
-    )
+    hass.bus.listen(EVENT_HOMEASSISTANT_STOP, partial(_shutdown_yaml_hub, hass))
     hass.add_job(_async_register_services(hass))
 
     return True
@@ -241,8 +240,6 @@ async def async_setup_entry(hass: HomeAssistant, entry) -> bool:
 
             yaml_hub = hass.data.get(DATA_ADS_HUBS, {}).pop("yaml", None)
             if yaml_hub is not None:
-                if unsubscribe := hass.data.pop(f"{DOMAIN}_yaml_shutdown_unsub", None):
-                    unsubscribe()
                 await hass.async_add_executor_job(yaml_hub.shutdown)
                 if hass.data.get(DATA_ADS) is yaml_hub:
                     hass.data[DATA_ADS] = hub
@@ -256,6 +253,12 @@ async def async_setup_entry(hass: HomeAssistant, entry) -> bool:
 
     entry.async_on_unload(entry.add_update_listener(async_reload_entry))
     return True
+
+
+def _shutdown_yaml_hub(hass: HomeAssistant, event: Event) -> None:
+    """Shut down the legacy YAML hub if it was not migrated to a config entry."""
+    if yaml_hub := hass.data.get(DATA_ADS_HUBS, {}).get("yaml"):
+        yaml_hub.shutdown()
 
 
 async def async_unload_entry(hass: HomeAssistant, entry) -> bool:
