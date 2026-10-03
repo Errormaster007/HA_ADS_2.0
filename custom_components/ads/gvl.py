@@ -21,7 +21,7 @@ def parse_gvl_variables(gvl_content: str) -> list[dict[str, str]]:
         if not line:
             continue
 
-        if line.startswith("(*") or line.startswith("//"):
+        if line.startswith(("(*", "//")):
             continue
 
         if line.upper().startswith("VAR"):
@@ -36,7 +36,7 @@ def parse_gvl_variables(gvl_content: str) -> list[dict[str, str]]:
             continue
 
         # Ignore TwinCAT attributes/pragmas and region markers.
-        if line.startswith("{") or line.startswith("#"):
+        if line.startswith(("{", "#")):
             continue
 
         match = _GVL_VARIABLE_PATTERN.match(raw_line)

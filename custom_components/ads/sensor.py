@@ -170,6 +170,7 @@ class AdsDebugMissingVariablesSensor(SensorEntity):
     _attr_entity_category = EntityCategory.DIAGNOSTIC
 
     def __init__(self, hass: HomeAssistant, entry_id: str) -> None:
+        """Initialize the missing variables sensor."""
         self.hass = hass
         self._entry_id = entry_id
         self._attr_unique_id = f"{DOMAIN}_{entry_id}_missing_symbols"

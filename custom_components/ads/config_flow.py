@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from contextlib import suppress
 import logging
 from pathlib import Path
 import ipaddress
@@ -15,7 +16,6 @@ import voluptuous as vol
 from homeassistant.config import load_yaml_config_file
 from homeassistant.config_entries import ConfigFlow, ConfigFlowResult, OptionsFlow
 from homeassistant.const import CONF_DEVICE, CONF_IP_ADDRESS, CONF_PLATFORM, CONF_PORT
-from homeassistant.core import callback
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import selector
 
@@ -37,15 +37,6 @@ class AdsConfigFlow(ConfigFlow, domain="ads"):
     """Handle an ADS config flow."""
 
     VERSION = 1
-    _yaml_defaults: dict[str, Any] | None = None
-    _scan_candidates: list[dict[str, str]] = []
-    _pending_scan_data: dict[str, Any] | None = None
-    _scan_defaults: dict[str, Any] = {
-        "subnet": "192.168.0.0/24",
-        "scan_limit": 64,
-        CONF_PORT: 851,
-        CONF_VERBOSE_LOGGING: False,
-    }
     _manual_defaults: dict[str, Any] = {
         CONF_DEVICE: "",
         CONF_PORT: 851,
@@ -53,6 +44,18 @@ class AdsConfigFlow(ConfigFlow, domain="ads"):
         CONF_VERBOSE_LOGGING: False,
         "scan_legacy_yaml": False,
     }
+
+    def __init__(self) -> None:
+        """Initialize state for this config flow only."""
+        self._yaml_defaults: dict[str, Any] | None = None
+        self._scan_candidates: list[dict[str, str]] = []
+        self._pending_scan_data: dict[str, Any] | None = None
+        self._scan_defaults: dict[str, Any] = {
+            "subnet": "192.168.0.0/24",
+            "scan_limit": 64,
+            CONF_PORT: 851,
+            CONF_VERBOSE_LOGGING: False,
+        }
 
     def async_get_options_flow(self, config_entry):
         """Return the options flow for this handler."""
@@ -505,16 +508,15 @@ def _validate_ads_connection(net_id: str, port: int, ip_address: str | None) -> 
 
     try:
         connection.open()
-        _LOGGER.debug("ADS config flow: ADS connection validation succeeded")
-        return True
     except pyads.ADSError as err:
         _LOGGER.debug("ADS config flow: ADS connection validation failed: %s", err)
         return False
+    else:
+        _LOGGER.debug("ADS config flow: ADS connection validation succeeded")
+        return True
     finally:
-        try:
+        with suppress(pyads.ADSError):
             connection.close()
-        except pyads.ADSError:
-            pass
 
 
 def _scan_subnet_for_ads_hosts(subnet: str, scan_limit: int) -> list[dict[str, str]]:
