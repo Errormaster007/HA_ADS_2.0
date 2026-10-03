@@ -29,7 +29,7 @@ from .const import (
     STATE_KEY_STATE,
     AdsType,
 )
-from .entity import AdsEntity
+from .entity import AdsEntity, is_legacy_entity_migrated
 from .hub import AdsHub
 
 DEFAULT_NAME = "ADS sensor"
@@ -72,6 +72,9 @@ def setup_platform(
     discovery_info: DiscoveryInfoType | None = None,
 ) -> None:
     """Set up an ADS sensor device."""
+    if is_legacy_entity_migrated(hass, "sensor", config[CONF_ADS_VAR]):
+        return
+
     ads_hub = hass.data[DATA_ADS]
     entity = _build_sensor_entity(ads_hub, config)
     if entity is not None:

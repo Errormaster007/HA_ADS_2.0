@@ -34,6 +34,7 @@ from .const import (
     DOMAIN,
     AdsType,
 )
+from .entity import async_remove_legacy_yaml_entities
 from .gvl import parse_gvl_variables
 from .hub import AdsHub
 
@@ -166,7 +167,9 @@ def setup(hass: HomeAssistant, config: ConfigType) -> bool:
 
     hass.data[DATA_ADS] = ads
     hass.data[DATA_ADS_HUBS]["yaml"] = ads
-    hass.bus.listen(EVENT_HOMEASSISTANT_STOP, ads.shutdown)
+    hass.data[f"{DOMAIN}_yaml_shutdown_unsub"] = hass.bus.listen(
+        EVENT_HOMEASSISTANT_STOP, ads.shutdown
+    )
     hass.add_job(_async_register_services(hass))
 
     return True
@@ -220,6 +223,8 @@ async def async_setup_entry(hass: HomeAssistant, entry) -> bool:
             if platform in LEGACY_ENTITY_PLATFORMS and isinstance(items, list)
         }
         if migrated_legacy_entities:
+            await async_remove_legacy_yaml_entities(hass, migrated_legacy_entities)
+
             merged_options = dict(entry.options)
             existing_legacy_entities = merged_options.get(CONF_LEGACY_ENTITIES, {})
             if isinstance(existing_legacy_entities, Mapping):
@@ -233,6 +238,14 @@ async def async_setup_entry(hass: HomeAssistant, entry) -> bool:
             new_data = dict(entry.data)
             new_data.pop(CONF_LEGACY_ENTITIES, None)
             hass.config_entries.async_update_entry(entry, data=new_data, options=merged_options)
+
+            yaml_hub = hass.data.get(DATA_ADS_HUBS, {}).pop("yaml", None)
+            if yaml_hub is not None:
+                if unsubscribe := hass.data.pop(f"{DOMAIN}_yaml_shutdown_unsub", None):
+                    unsubscribe()
+                await hass.async_add_executor_job(yaml_hub.shutdown)
+                if hass.data.get(DATA_ADS) is yaml_hub:
+                    hass.data[DATA_ADS] = hub
             _LOGGER.info(
                 "Migrated %d legacy ADS entities into config entry options",
                 _count_legacy_entities(migrated_legacy_entities),
@@ -467,6 +480,7 @@ async def _async_migrate_yaml_to_entry(hass: HomeAssistant, yaml_config: dict) -
                 CONF_PORT: port,
                 CONF_IP_ADDRESS: ip_address,
                 CONF_VERBOSE_LOGGING: verbose_logging,
+                CONF_LEGACY_ENTITIES: legacy_entities,
             },
         )
 

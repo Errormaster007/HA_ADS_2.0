@@ -18,7 +18,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 
 from .const import CONF_ADS_VAR, CONF_LEGACY_ENTITIES, DATA_ADS, DATA_ADS_HUBS, STATE_KEY_STATE
-from .entity import AdsEntity
+from .entity import AdsEntity, is_legacy_entity_migrated
 from .hub import AdsHub
 
 DEFAULT_NAME = "ADS binary sensor"
@@ -38,6 +38,9 @@ def setup_platform(
     discovery_info: DiscoveryInfoType | None = None,
 ) -> None:
     """Set up the Binary Sensor platform for ADS."""
+    if is_legacy_entity_migrated(hass, "binary_sensor", config[CONF_ADS_VAR]):
+        return
+
     ads_hub = hass.data[DATA_ADS]
     entity = _build_binary_sensor_entity(ads_hub, config)
     if entity is not None:

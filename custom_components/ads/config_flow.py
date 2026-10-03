@@ -81,15 +81,16 @@ class AdsConfigFlow(ConfigFlow, domain="ads"):
         ):
             return self.async_abort(reason="cannot_connect")
 
-        return self.async_create_entry(
-            title=f"ADS {net_id} (migrated)",
-            data={
-                CONF_DEVICE: net_id,
-                CONF_PORT: port,
-                CONF_IP_ADDRESS: ip_address,
-                CONF_VERBOSE_LOGGING: import_data.get(CONF_VERBOSE_LOGGING, False),
-            },
-        )
+        entry_data = {
+            CONF_DEVICE: net_id,
+            CONF_PORT: port,
+            CONF_IP_ADDRESS: ip_address,
+            CONF_VERBOSE_LOGGING: import_data.get(CONF_VERBOSE_LOGGING, False),
+        }
+        if legacy_entities := import_data.get(CONF_LEGACY_ENTITIES):
+            entry_data[CONF_LEGACY_ENTITIES] = legacy_entities
+
+        return self.async_create_entry(title=f"ADS {net_id} (migrated)", data=entry_data)
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None

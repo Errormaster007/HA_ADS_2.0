@@ -19,7 +19,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 
 from .const import CONF_ADS_VAR, CONF_LEGACY_ENTITIES, DATA_ADS, DATA_ADS_HUBS
-from .entity import AdsEntity
+from .entity import AdsEntity, is_legacy_entity_migrated
 from .hub import AdsHub
 
 DEFAULT_NAME = "ADS valve"
@@ -40,6 +40,9 @@ def setup_platform(
     discovery_info: DiscoveryInfoType | None = None,
 ) -> None:
     """Set up an ADS valve device."""
+    if is_legacy_entity_migrated(hass, "valve", config[CONF_ADS_VAR]):
+        return
+
     ads_hub = hass.data[DATA_ADS]
     entity = _build_valve_entity(ads_hub, config)
     if entity is not None:

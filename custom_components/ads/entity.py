@@ -2,15 +2,65 @@
 
 import asyncio
 from asyncio import timeout
+from collections.abc import Mapping
 import logging
 from typing import Any
 
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers.entity_component import DATA_INSTANCES
 from homeassistant.helpers.entity import Entity
 
-from .const import STATE_KEY_STATE
+from .const import CONF_ADS_VAR, CONF_LEGACY_ENTITIES, DOMAIN, STATE_KEY_STATE
 from .hub import AdsHub
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def is_legacy_entity_migrated(
+    hass: HomeAssistant, platform: str, ads_var: str
+) -> bool:
+    """Return whether a YAML ADS entity has been claimed by a config entry."""
+    for entry in hass.config_entries.async_entries(DOMAIN):
+        for source in (entry.data, entry.options):
+            legacy_entities = source.get(CONF_LEGACY_ENTITIES)
+            if not isinstance(legacy_entities, Mapping):
+                continue
+            platform_entities = legacy_entities.get(platform, [])
+            if any(
+                isinstance(config, Mapping) and config.get(CONF_ADS_VAR) == ads_var
+                for config in platform_entities
+            ):
+                return True
+    return False
+
+
+async def async_remove_legacy_yaml_entities(
+    hass: HomeAssistant, legacy_entities: Mapping[str, list[dict[str, Any]]]
+) -> None:
+    """Remove matching active YAML entities so config-entry entities can adopt them."""
+    entity_registry = er.async_get(hass)
+    entity_components = hass.data.get(DATA_INSTANCES, {})
+
+    for platform, configs in legacy_entities.items():
+        component = entity_components.get(platform)
+        if component is None:
+            continue
+
+        for config in configs:
+            ads_var = config.get(CONF_ADS_VAR)
+            if not ads_var:
+                continue
+
+            entity_id = entity_registry.async_get_entity_id(platform, DOMAIN, ads_var)
+            if entity_id is None:
+                continue
+
+            registry_entry = entity_registry.async_get(entity_id)
+            if registry_entry is None or registry_entry.config_entry_id is not None:
+                continue
+
+            await component.async_remove_entity(entity_id)
 
 
 class AdsEntity(Entity):
