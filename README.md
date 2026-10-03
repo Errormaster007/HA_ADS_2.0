@@ -1,7 +1,7 @@
 # ADS – Beckhoff TwinCAT Integration für Home Assistant
 
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://hacs.xyz)
-[![Version](https://img.shields.io/badge/version-0.1.1-blue.svg)](https://github.com/Errormaster007/HA_ADS_2.0/releases)
+[![Version](https://img.shields.io/badge/version-0.2.3-blue.svg)](https://github.com/Errormaster007/HA_ADS_2.0/releases)
 
 Erweiterte ADS-Integration für Home Assistant zur Anbindung von Beckhoff TwinCAT-SPSen über das ADS-Protokoll.
 
