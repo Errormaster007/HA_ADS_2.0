@@ -85,10 +85,22 @@
       "step": {
         "user": {
           "data": {
-            "ha_device_id": "Home Assistant device",
+            "device_mode": "Device",
             "replace_mappings": "Replace all existing variable mappings"
           },
-          "description": "Choose the Home Assistant device that should contain the ADS entities. When reconfiguring, you can keep existing mappings or replace them."
+          "description": "Choose an existing Home Assistant device or create a new ADS device. When reconfiguring, you can keep existing mappings or replace them."
+        },
+        "existing_device": {
+          "data": {
+            "ha_device_id": "Home Assistant device"
+          },
+          "description": "Choose the Home Assistant device that should contain the ADS entities."
+        },
+        "new_device": {
+          "data": {
+            "device_name": "New device name"
+          },
+          "description": "Enter a name for the new ADS device. Home Assistant creates it when the first mapped entity is added."
         },
         "platform": {
           "data": {
@@ -123,6 +135,14 @@
           },
           "description": "Map the PLC variables for this entity. Optional variables can be left empty."
         }
+      }
+    }
+  },
+  "selector": {
+    "device_mode": {
+      "options": {
+        "existing": "Use an existing Home Assistant device",
+        "new": "Create a new ADS device"
       }
     }
   },

@@ -539,19 +539,55 @@ class AdsOptionsFlow(OptionsFlow):
 
 
 class AdsDeviceMappingSubentryFlow(ConfigSubentryFlow):
-    """Configure one or more ADS entities for a selected Home Assistant device."""
+    """Configure one or more ADS entities for a Home Assistant device."""
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> SubentryFlowResult:
-        """Select the Home Assistant device to attach mapped entities to."""
+        """Choose whether mapped entities use an existing or new device."""
         errors: dict[str, str] = {}
         if not hasattr(self, "_entities"):
             self._entities: list[dict[str, Any]] = []
             self._mapped_device_id = uuid4().hex
+            self._ha_device_id: str | None = None
+            self._replace_mappings = False
             if self.source == SOURCE_RECONFIGURE:
                 self._initialize_from_subentry()
 
+        if user_input is not None:
+            device_mode = user_input["device_mode"]
+            self._replace_mappings = user_input.get("replace_mappings", False)
+            if device_mode == "new":
+                return await self.async_step_new_device()
+            return await self.async_step_existing_device()
+
+        device_mode = "existing"
+        if self.source == SOURCE_RECONFIGURE and self._ha_device_id is None:
+            device_mode = "new"
+        schema_fields: dict[Any, Any] = {
+            vol.Required("device_mode", default=device_mode): selector.SelectSelector(
+                selector.SelectSelectorConfig(
+                    options=["existing", "new"],
+                    translation_key="device_mode",
+                )
+            )
+        }
+        if self.source == SOURCE_RECONFIGURE:
+            schema_fields[vol.Optional("replace_mappings", default=False)] = bool
+        return self.async_show_form(
+            step_id="user",
+            data_schema=vol.Schema(schema_fields),
+            errors=errors,
+        )
+
+    async_step_reconfigure = async_step_user
+
+    async def async_step_existing_device(
+        self, user_input: dict[str, Any] | None = None
+    ) -> SubentryFlowResult:
+        """Select the existing Home Assistant device to map to."""
+        errors: dict[str, str] = {}
+        suggested_values = {}
         if user_input is not None:
             ha_device_id = user_input[CONF_HA_DEVICE_ID]
             device = dr.async_get(self.hass).async_get(ha_device_id)
@@ -560,30 +596,54 @@ class AdsDeviceMappingSubentryFlow(ConfigSubentryFlow):
             elif self._device_is_already_mapped(ha_device_id):
                 errors["base"] = "already_configured"
             else:
-                if user_input.get("replace_mappings", False):
-                    self._entities = []
                 self._ha_device_id = ha_device_id
                 self._device_name = device.name_by_user or device.name or "ADS device"
-                return await self.async_step_platform()
-
-        suggested_values = {}
-        if self.source == SOURCE_RECONFIGURE and hasattr(self, "_ha_device_id"):
+                return await self._async_step_platform_for_device()
+        elif self.source == SOURCE_RECONFIGURE and self._ha_device_id is not None:
             suggested_values[CONF_HA_DEVICE_ID] = self._ha_device_id
-        schema_fields: dict[Any, Any] = {
-            vol.Required(CONF_HA_DEVICE_ID): selector.DeviceSelector(
-                selector.DeviceSelectorConfig()
-            )
-        }
-        if self.source == SOURCE_RECONFIGURE:
-            schema_fields[vol.Optional("replace_mappings", default=False)] = bool
-        schema = vol.Schema(schema_fields)
+
+        schema = vol.Schema(
+            {
+                vol.Required(CONF_HA_DEVICE_ID): selector.DeviceSelector(
+                    selector.DeviceSelectorConfig()
+                )
+            }
+        )
         return self.async_show_form(
-            step_id="user",
+            step_id="existing_device",
             data_schema=self.add_suggested_values_to_schema(schema, suggested_values),
             errors=errors,
         )
 
-    async_step_reconfigure = async_step_user
+    async def async_step_new_device(
+        self, user_input: dict[str, Any] | None = None
+    ) -> SubentryFlowResult:
+        """Set a name for a new ADS device."""
+        if user_input is not None:
+            self._ha_device_id = None
+            self._device_name = user_input["device_name"]
+            return await self._async_step_platform_for_device()
+
+        suggested_values = {}
+        if self.source == SOURCE_RECONFIGURE and self._ha_device_id is None:
+            suggested_values["device_name"] = self._device_name
+        schema = vol.Schema(
+            {
+                vol.Required("device_name"): vol.All(
+                    str, vol.Length(min=1, max=255)
+                )
+            }
+        )
+        return self.async_show_form(
+            step_id="new_device",
+            data_schema=self.add_suggested_values_to_schema(schema, suggested_values),
+        )
+
+    async def _async_step_platform_for_device(self) -> SubentryFlowResult:
+        """Continue to entity mapping after choosing the target device."""
+        if self._replace_mappings:
+            self._entities = []
+        return await self.async_step_platform()
 
     async def async_step_platform(
         self, user_input: dict[str, Any] | None = None
@@ -685,7 +745,7 @@ class AdsDeviceMappingSubentryFlow(ConfigSubentryFlow):
         subentry = self._get_reconfigure_subentry()
         document = subentry.data[CONF_MAPPING]
         mapped_device = document["devices"][0]
-        self._ha_device_id = mapped_device[CONF_HA_DEVICE_ID]
+        self._ha_device_id = mapped_device.get(CONF_HA_DEVICE_ID)
         self._mapped_device_id = mapped_device["id"]
         self._device_name = mapped_device["name"]
         self._entities = list(document["entities"])
@@ -715,14 +775,14 @@ class AdsDeviceMappingSubentryFlow(ConfigSubentryFlow):
 
     def _mapping_document(self, entities: list[dict[str, Any]]) -> dict[str, Any]:
         """Build the per-device mapping document stored in the subentry."""
+        device = {
+            "id": self._mapped_device_id,
+            "name": self._device_name,
+        }
+        if self._ha_device_id is not None:
+            device[CONF_HA_DEVICE_ID] = self._ha_device_id
         return {
-            "devices": [
-                {
-                    "id": self._mapped_device_id,
-                    "name": self._device_name,
-                    CONF_HA_DEVICE_ID: self._ha_device_id,
-                }
-            ],
+            "devices": [device],
             "entities": entities,
         }
 

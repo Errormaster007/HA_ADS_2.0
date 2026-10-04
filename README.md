@@ -1,13 +1,13 @@
 # ADS – Beckhoff TwinCAT Integration für Home Assistant
 
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://hacs.xyz)
-[![Version](https://img.shields.io/badge/version-0.2.5-blue.svg)](https://github.com/Errormaster007/HA_ADS_2.0/releases)
+[![Version](https://img.shields.io/badge/version-0.2.6-blue.svg)](https://github.com/Errormaster007/HA_ADS_2.0/releases)
 
 Erweiterte ADS-Integration für Home Assistant zur Anbindung von Beckhoff TwinCAT-SPSen über das ADS-Protokoll.
 
 **Neue Features (gegenüber offizieller Integration):**
 - UI-Konfiguration über Config Flow
-- Optionale SPS-Variablenzuordnung zu vorhandenen Home-Assistant-Geräten als Integration-Untereintrag; pro Gerät sind mehrere Entitäten möglich
+- Optionale SPS-Variablenzuordnung zu vorhandenen oder neuen Home-Assistant-Geräten als Integration-Untereintrag; pro Gerät sind mehrere Entitäten möglich
 - GVL-Import (Service + Options-Dialog) für schnellen Variablenabgleich mit der Beckhoff SPS
 - Ausführliches Logging mit Hub-Identifikation
 - Update-Entity für HACS/Home Assistant mit Versionsprüfung gegen GitHub Releases
@@ -19,10 +19,12 @@ vermeidet so blockierende Dateizugriffe und unnötige API-Anfragen.
 ## SPS-Variablen Geräten zuordnen
 
 Nach dem Einrichten einer ADS-Verbindung kann über den Integrationseintrag
-**Gerätezuordnung hinzufügen** ein vorhandenes Home-Assistant-Gerät ausgewählt
-werden. Die Zuordnung ist optional; pro Untereintrag lassen sich mehrere
-Sensoren, Schalter, Lichter, Abdeckungen, Ventile oder Binärsensoren mit ihren
-jeweiligen SPS-Rückmelde- und Befehlsvariablen anlegen.
+**Gerätezuordnung hinzufügen** entweder ein vorhandenes Home-Assistant-Gerät
+ausgewählt oder ein neues ADS-Gerät angelegt werden. Ein neues Gerät wird beim
+Anlegen seiner ersten Entität registriert. Die Zuordnung ist optional; pro
+Untereintrag lassen sich mehrere Sensoren, Schalter, Lichter, Abdeckungen,
+Ventile oder Binärsensoren mit ihren jeweiligen SPS-Rückmelde- und
+Befehlsvariablen anlegen.
 
 ## Installation über HACS (empfohlen)
 
