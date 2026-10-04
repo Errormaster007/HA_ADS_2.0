@@ -1,14 +1,13 @@
 """Support for ADS update entities."""
 
-from __future__ import annotations
-
+from datetime import timedelta
 import json
 import logging
 from pathlib import Path
 
 from aiohttp import ClientError
 
-from homeassistant.components.update import UpdateEntity
+from homeassistant.components.update import UpdateEntity, UpdateEntityFeature
 from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
@@ -17,6 +16,8 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
+
+SCAN_INTERVAL = timedelta(hours=6)
 
 _MANIFEST_PATH = Path(__file__).with_name("manifest.json")
 _REPOSITORY = "Errormaster007/HA_ADS_2.0"
@@ -42,7 +43,10 @@ async def async_setup_entry(
 ) -> None:
     """Set up the ADS update entity."""
     installed_version = await hass.async_add_executor_job(_installed_version)
-    async_add_entities([AdsUpdateEntity(hass, entry.entry_id, installed_version)])
+    async_add_entities(
+        [AdsUpdateEntity(hass, entry.entry_id, installed_version)],
+        update_before_add=True,
+    )
 
 
 class AdsUpdateEntity(UpdateEntity):
@@ -50,7 +54,8 @@ class AdsUpdateEntity(UpdateEntity):
 
     _attr_has_entity_name = True
     _attr_name = "Update"
-    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_entity_category = EntityCategory.CONFIG
+    _attr_supported_features = UpdateEntityFeature.RELEASE_NOTES
 
     def __init__(
         self, hass: HomeAssistant, entry_id: str, installed_version: str
@@ -101,19 +106,12 @@ class AdsUpdateEntity(UpdateEntity):
                 response.raise_for_status()
                 payload = await response.json()
         except (ClientError, TimeoutError, ValueError) as err:
-            _LOGGER.debug("Could not fetch ADS release info: %s", err)
-            self._latest_version = self._attr_installed_version
-            self._release_notes = None
-            self._release_summary = None
-            self._release_url = None
+            _LOGGER.warning("Could not fetch ADS release info: %s", err)
             return
 
         latest_version = str(payload.get("tag_name", "")).lstrip("v")
         if not latest_version:
-            self._latest_version = self._attr_installed_version
-            self._release_notes = None
-            self._release_summary = None
-            self._release_url = None
+            _LOGGER.warning("GitHub returned no latest ADS release tag")
             return
 
         self._latest_version = latest_version

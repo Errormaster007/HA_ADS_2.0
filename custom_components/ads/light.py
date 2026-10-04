@@ -1,7 +1,5 @@
 """Support for ADS light sources."""
 
-from __future__ import annotations
-
 from typing import Any
 
 import pyads
@@ -20,12 +18,22 @@ from homeassistant.components.light import (
 from homeassistant.const import CONF_NAME
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.entity_platform import (
+    AddConfigEntryEntitiesCallback,
+    AddEntitiesCallback,
+)
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 
-from .const import CONF_ADS_VAR, CONF_LEGACY_ENTITIES, DATA_ADS, DATA_ADS_HUBS, STATE_KEY_STATE
+from .const import (
+    CONF_ADS_VAR,
+    CONF_LEGACY_ENTITIES,
+    DATA_ADS,
+    DATA_ADS_HUBS,
+    STATE_KEY_STATE,
+)
 from .entity import AdsEntity, is_legacy_entity_migrated
 from .hub import AdsHub
+from .mapped_entity import async_add_mapped_entities
 
 CONF_ADS_VAR_BRIGHTNESS = "adsvar_brightness"
 CONF_ADS_VAR_COLOR_TEMP_KELVIN = "adsvar_color_temp_kelvin"
@@ -66,7 +74,7 @@ def setup_platform(
 async def async_setup_entry(
     hass: HomeAssistant,
     entry,
-    async_add_entities: AddEntitiesCallback,
+    async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     """Set up migrated legacy ADS lights from config entry options."""
     ads_hub = hass.data.get(DATA_ADS_HUBS, {}).get(entry.entry_id)
@@ -82,6 +90,7 @@ async def async_setup_entry(
     ]
     if entities:
         async_add_entities(entities)
+    async_add_mapped_entities(hass, entry, "light", async_add_entities)
 
 
 def _build_light_entity(ads_hub: AdsHub, config: ConfigType) -> AdsLight | None:

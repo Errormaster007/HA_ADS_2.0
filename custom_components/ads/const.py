@@ -18,9 +18,12 @@ CONF_GVL = "gvl"
 CONF_GVL_FILE_PATH = "gvl_file_path"
 CONF_GVL_IMPORT_REPLACE = "gvl_import_replace"
 CONF_GVL_VARIABLES = "gvl_variables"
+CONF_HA_DEVICE_ID = "ha_device_id"
 CONF_LEGACY_ENTITIES = "legacy_entities"
 CONF_VERBOSE_LOGGING = "verbose_logging"
 CONF_ENTRY_ID = "entry_id"
+
+SUBENTRY_TYPE_DEVICE_MAPPING = "device_mapping"
 
 STATE_KEY_STATE = "state"
 

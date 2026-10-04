@@ -75,6 +75,62 @@
       }
     }
   },
+  "config_subentries": {
+    "device_mapping": {
+      "entry_type": "ADS device mapping",
+      "initiate_flow": {
+        "user": "Add device mapping",
+        "reconfigure": "Reconfigure device mapping"
+      },
+      "error": {
+        "already_configured": "This Home Assistant device already has an ADS mapping.",
+        "device_not_found": "The selected Home Assistant device no longer exists.",
+        "invalid_mapping": "The variable mapping is invalid or conflicts with another mapping."
+      },
+      "step": {
+        "user": {
+          "data": {
+            "ha_device_id": "Home Assistant device",
+            "replace_mappings": "Replace all existing variable mappings"
+          },
+          "description": "Choose the Home Assistant device that should contain the ADS entities. When reconfiguring, you can keep existing mappings or replace them."
+        },
+        "platform": {
+          "data": {
+            "platform": "Entity type"
+          },
+          "description": "Choose which kind of Home Assistant entity to create."
+        },
+        "entity": {
+          "data": {
+            "entity_name": "Entity name",
+            "add_another": "Add another entity to this device",
+            "state_variable": "State variable",
+            "state_type": "State ADS type",
+            "command_variable": "Command variable",
+            "command_type": "Command ADS type",
+            "brightness_variable": "Brightness feedback variable",
+            "brightness_type": "Brightness feedback ADS type",
+            "brightness_command_variable": "Brightness command variable",
+            "brightness_command_type": "Brightness command ADS type",
+            "open_variable": "Open command variable",
+            "open_type": "Open command ADS type",
+            "close_variable": "Close command variable",
+            "close_type": "Close command ADS type",
+            "stop_variable": "Stop command variable",
+            "stop_type": "Stop command ADS type",
+            "position_variable": "Position feedback variable",
+            "position_type": "Position feedback ADS type",
+            "position_command_variable": "Position command variable",
+            "position_command_type": "Position command ADS type",
+            "device_class": "Device class",
+            "unit": "Unit of measurement"
+          },
+          "description": "Map the PLC variables for this entity. Optional variables can be left empty."
+        }
+      }
+    }
+  },
   "services": {
     "import_gvl": {
       "description": "Import GVL variables from text or a file and store them in ADS options.",

@@ -75,6 +75,62 @@
       }
     }
   },
+  "config_subentries": {
+    "device_mapping": {
+      "entry_type": "ADS-Gerätezuordnung",
+      "initiate_flow": {
+        "user": "Gerätezuordnung hinzufügen",
+        "reconfigure": "Gerätezuordnung bearbeiten"
+      },
+      "error": {
+        "already_configured": "Für dieses Home-Assistant-Gerät ist bereits eine ADS-Zuordnung vorhanden.",
+        "device_not_found": "Das ausgewählte Home-Assistant-Gerät ist nicht mehr vorhanden.",
+        "invalid_mapping": "Die Variablenzuordnung ist ungültig oder steht im Konflikt mit einer anderen Zuordnung."
+      },
+      "step": {
+        "user": {
+          "data": {
+            "ha_device_id": "Home-Assistant-Gerät",
+            "replace_mappings": "Alle vorhandenen Variablenzuordnungen ersetzen"
+          },
+          "description": "Wähle das Home-Assistant-Gerät aus, dem die ADS-Entitäten zugeordnet werden. Beim Bearbeiten kannst du vorhandene Zuordnungen beibehalten oder ersetzen."
+        },
+        "platform": {
+          "data": {
+            "platform": "Entitätstyp"
+          },
+          "description": "Wähle den Typ der Home-Assistant-Entität aus."
+        },
+        "entity": {
+          "data": {
+            "entity_name": "Entitätsname",
+            "add_another": "Eine weitere Entität für dieses Gerät hinzufügen",
+            "state_variable": "Zustandsvariable",
+            "state_type": "ADS-Typ des Zustands",
+            "command_variable": "Befehlsvariable",
+            "command_type": "ADS-Typ des Befehls",
+            "brightness_variable": "Rückmeldevariable für Helligkeit",
+            "brightness_type": "ADS-Typ der Helligkeitsrückmeldung",
+            "brightness_command_variable": "Befehlsvariable für Helligkeit",
+            "brightness_command_type": "ADS-Typ des Helligkeitsbefehls",
+            "open_variable": "Öffnungs-Befehlsvariable",
+            "open_type": "ADS-Typ des Öffnungsbefehls",
+            "close_variable": "Schließ-Befehlsvariable",
+            "close_type": "ADS-Typ des Schließbefehls",
+            "stop_variable": "Stopp-Befehlsvariable",
+            "stop_type": "ADS-Typ des Stoppbefehls",
+            "position_variable": "Positionsrückmeldevariable",
+            "position_type": "ADS-Typ der Positionsrückmeldung",
+            "position_command_variable": "Positions-Befehlsvariable",
+            "position_command_type": "ADS-Typ des Positionsbefehls",
+            "device_class": "Geräteklasse",
+            "unit": "Maßeinheit"
+          },
+          "description": "Ordne die SPS-Variablen dieser Entität zu. Optionale Variablen können leer bleiben."
+        }
+      }
+    }
+  },
   "services": {
     "import_gvl": {
       "description": "Importiert GVL-Variablen aus Text oder Datei und speichert sie in den ADS-Optionen.",

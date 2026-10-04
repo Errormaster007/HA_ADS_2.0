@@ -1,18 +1,28 @@
 # ADS – Beckhoff TwinCAT Integration für Home Assistant
 
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://hacs.xyz)
-[![Version](https://img.shields.io/badge/version-0.2.4-blue.svg)](https://github.com/Errormaster007/HA_ADS_2.0/releases)
+[![Version](https://img.shields.io/badge/version-0.2.5-blue.svg)](https://github.com/Errormaster007/HA_ADS_2.0/releases)
 
 Erweiterte ADS-Integration für Home Assistant zur Anbindung von Beckhoff TwinCAT-SPSen über das ADS-Protokoll.
 
 **Neue Features (gegenüber offizieller Integration):**
 - UI-Konfiguration über Config Flow
+- Optionale SPS-Variablenzuordnung zu vorhandenen Home-Assistant-Geräten als Integration-Untereintrag; pro Gerät sind mehrere Entitäten möglich
 - GVL-Import (Service + Options-Dialog) für schnellen Variablenabgleich mit der Beckhoff SPS
 - Ausführliches Logging mit Hub-Identifikation
 - Update-Entity für HACS/Home Assistant mit Versionsprüfung gegen GitHub Releases
 
 Die Update-Entity liest die installierte Version beim Setup im Executor ein,
-damit der Dateizugriff den Home-Assistant-Event-Loop nicht blockiert.
+fragt GitHub direkt beim Hinzufügen und danach alle sechs Stunden ab und
+vermeidet so blockierende Dateizugriffe und unnötige API-Anfragen.
+
+## SPS-Variablen Geräten zuordnen
+
+Nach dem Einrichten einer ADS-Verbindung kann über den Integrationseintrag
+**Gerätezuordnung hinzufügen** ein vorhandenes Home-Assistant-Gerät ausgewählt
+werden. Die Zuordnung ist optional; pro Untereintrag lassen sich mehrere
+Sensoren, Schalter, Lichter, Abdeckungen, Ventile oder Binärsensoren mit ihren
+jeweiligen SPS-Rückmelde- und Befehlsvariablen anlegen.
 
 ## Installation über HACS (empfohlen)
 

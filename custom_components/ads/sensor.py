@@ -1,7 +1,5 @@
 """Support for ADS sensors."""
 
-from __future__ import annotations
-
 import voluptuous as vol
 
 from homeassistant.components.sensor import (
@@ -13,10 +11,18 @@ from homeassistant.components.sensor import (
     SensorEntity,
     SensorStateClass,
 )
-from homeassistant.const import CONF_DEVICE_CLASS, CONF_NAME, CONF_UNIT_OF_MEASUREMENT, EntityCategory
+from homeassistant.const import (
+    CONF_DEVICE_CLASS,
+    CONF_NAME,
+    CONF_UNIT_OF_MEASUREMENT,
+    EntityCategory,
+)
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.entity_platform import (
+    AddConfigEntryEntitiesCallback,
+    AddEntitiesCallback,
+)
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType, StateType
 
 from . import ADS_TYPEMAP, CONF_ADS_FACTOR, CONF_ADS_TYPE
@@ -31,6 +37,7 @@ from .const import (
 )
 from .entity import AdsEntity, is_legacy_entity_migrated
 from .hub import AdsHub
+from .mapped_entity import async_add_mapped_entities
 
 DEFAULT_NAME = "ADS sensor"
 
@@ -110,10 +117,12 @@ def _build_sensor_entity(ads_hub: AdsHub, config: ConfigType) -> AdsSensor | Non
 async def async_setup_entry(
     hass: HomeAssistant,
     entry,
-    async_add_entities: AddEntitiesCallback,
+    async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     """Set up migrated ADS sensors and one debug sensor for config entry setups."""
-    entities: list[SensorEntity] = [AdsDebugMissingVariablesSensor(hass, entry.entry_id)]
+    entities: list[SensorEntity] = [
+        AdsDebugMissingVariablesSensor(hass, entry.entry_id)
+    ]
 
     ads_hub = hass.data.get(DATA_ADS_HUBS, {}).get(entry.entry_id)
     if ads_hub is not None:
@@ -126,6 +135,8 @@ async def async_setup_entry(
         )
 
     async_add_entities(entities)
+    if ads_hub is not None:
+        async_add_mapped_entities(hass, entry, "sensor", async_add_entities)
 
 
 class AdsSensor(AdsEntity, SensorEntity):

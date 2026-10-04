@@ -1,12 +1,15 @@
 """Support for Automation Device Specification (ADS)."""
 
 from collections import namedtuple
+from collections.abc import Callable
 import ctypes
 import logging
 import struct
 import threading
 
 import pyads
+
+from homeassistant.exceptions import HomeAssistantError
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -111,6 +114,30 @@ class AdsHub:
             except pyads.ADSError as err:
                 _LOGGER.error("Hub '%s': Error reading %s: %s", self._hub_id, name, err)
 
+    def read_mapped_variable(self, name: str, plc_datatype: type):
+        """Read a mapped symbol without a success-shaped error fallback."""
+        with self._lock:
+            return self._client.read_by_name(name, plc_datatype)
+
+    def write_mapped_variable(self, name: str, value, plc_datatype: type) -> None:
+        """Write an explicitly mapped command and report failures to HA."""
+        with self._lock:
+            try:
+                self._client.write_by_name(name, value, plc_datatype)
+            except pyads.ADSError as err:
+                raise HomeAssistantError(f"ADS write failed for {name}: {err}") from err
+
+    def remove_mapped_notifications(self, callback: Callable) -> None:
+        """Unsubscribe a mapped entity without disturbing other entities."""
+        with self._lock:
+            items = [
+                item for item in self._notification_items.values()
+                if item.callback == callback
+            ]
+            for item in items:
+                self._client.del_device_notification(item.hnotify, item.huser)
+                del self._notification_items[item.hnotify]
+
     def add_device_notification(self, name, plc_datatype, callback):
         """Add a notification to the ADS devices."""
 
@@ -176,7 +203,7 @@ class AdsHub:
         # Data parsing based on PLC data type
         plc_datatype = notification_item.plc_datatype
         unpack_formats = {
-            pyads.PLCTYPE_BYTE: "<b",
+            pyads.PLCTYPE_BYTE: "<B",
             pyads.PLCTYPE_INT: "<h",
             pyads.PLCTYPE_UINT: "<H",
             pyads.PLCTYPE_SINT: "<b",

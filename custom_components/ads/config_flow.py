@@ -1,34 +1,51 @@
 """Config flow for ADS integration."""
 
-from __future__ import annotations
-
 from collections.abc import Mapping, Sequence
 from contextlib import suppress
+import ipaddress
 import logging
 from pathlib import Path
-import ipaddress
 import socket
 from typing import Any
+from uuid import uuid4
 
 import pyads
 import voluptuous as vol
 
 from homeassistant.config import load_yaml_config_file
-from homeassistant.config_entries import ConfigFlow, ConfigFlowResult, OptionsFlow
+from homeassistant.config_entries import (
+    SOURCE_RECONFIGURE,
+    ConfigEntry,
+    ConfigFlow,
+    ConfigFlowResult,
+    ConfigSubentryFlow,
+    OptionsFlow,
+    SubentryFlowResult,
+)
 from homeassistant.const import CONF_DEVICE, CONF_IP_ADDRESS, CONF_PLATFORM, CONF_PORT
+from homeassistant.core import callback
 from homeassistant.exceptions import HomeAssistantError
-from homeassistant.helpers import selector
+from homeassistant.helpers import device_registry as dr, selector
 
 from .const import (
     CONF_GVL,
     CONF_GVL_IMPORT_REPLACE,
     CONF_GVL_VARIABLES,
+    CONF_HA_DEVICE_ID,
     CONF_LEGACY_ENTITIES,
     CONF_VERBOSE_LOGGING,
     DOMAIN,
+    SUBENTRY_TYPE_DEVICE_MAPPING,
 )
 from .gvl import parse_gvl_variables
-
+from .mapping import (
+    CONF_MAPPING,
+    DEVICE_CLASSES,
+    REQUIRED_ROLES,
+    ROLE_TYPES,
+    empty_mapping,
+    validate_mapping,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -61,9 +78,15 @@ class AdsConfigFlow(ConfigFlow, domain="ads"):
         """Return the options flow for this handler."""
         return AdsOptionsFlow(config_entry)
 
-    async def async_step_import(
-        self, import_data: dict[str, Any]
-    ) -> ConfigFlowResult:
+    @classmethod
+    @callback
+    def async_get_supported_subentry_types(
+        cls, config_entry: ConfigEntry
+    ) -> dict[str, type[ConfigSubentryFlow]]:
+        """Return the subentries supported by this integration."""
+        return {SUBENTRY_TYPE_DEVICE_MAPPING: AdsDeviceMappingSubentryFlow}
+
+    async def async_step_import(self, import_data: dict[str, Any]) -> ConfigFlowResult:
         """Handle import from YAML configuration."""
         net_id = import_data[CONF_DEVICE]
         ip_address = import_data.get(CONF_IP_ADDRESS)
@@ -90,7 +113,9 @@ class AdsConfigFlow(ConfigFlow, domain="ads"):
         if legacy_entities := import_data.get(CONF_LEGACY_ENTITIES):
             entry_data[CONF_LEGACY_ENTITIES] = legacy_entities
 
-        return self.async_create_entry(title=f"ADS {net_id} (migrated)", data=entry_data)
+        return self.async_create_entry(
+            title=f"ADS {net_id} (migrated)", data=entry_data
+        )
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
@@ -153,7 +178,9 @@ class AdsConfigFlow(ConfigFlow, domain="ads"):
 
         defaults = dict(self._scan_defaults)
         if defaults.get("subnet") == "192.168.0.0/24":
-            defaults["subnet"] = await self.hass.async_add_executor_job(_guess_local_subnet)
+            defaults["subnet"] = await self.hass.async_add_executor_job(
+                _guess_local_subnet
+            )
 
         return self.async_show_form(
             step_id="network_scan",
@@ -234,7 +261,9 @@ class AdsConfigFlow(ConfigFlow, domain="ads"):
                 )
                 errors["base"] = "cannot_connect"
             else:
-                return self.async_create_entry(title=f"ADS {net_id}", data=selected_data)
+                return self.async_create_entry(
+                    title=f"ADS {net_id}", data=selected_data
+                )
 
         return self.async_show_form(
             step_id="network_pick",
@@ -247,7 +276,9 @@ class AdsConfigFlow(ConfigFlow, domain="ads"):
                         selector.SelectSelectorConfig(options=options)
                     ),
                     vol.Required(CONF_DEVICE, default=default_net_id): str,
-                    vol.Required(CONF_PORT, default=self._scan_defaults[CONF_PORT]): int,
+                    vol.Required(
+                        CONF_PORT, default=self._scan_defaults[CONF_PORT]
+                    ): int,
                     vol.Required(
                         CONF_VERBOSE_LOGGING,
                         default=self._scan_defaults[CONF_VERBOSE_LOGGING],
@@ -273,8 +304,12 @@ class AdsConfigFlow(ConfigFlow, domain="ads"):
             if user_input["use_legacy_yaml"] and self._yaml_defaults:
                 entry_data.update(
                     {
-                        CONF_DEVICE: self._yaml_defaults.get(CONF_DEVICE, entry_data[CONF_DEVICE]),
-                        CONF_PORT: self._yaml_defaults.get(CONF_PORT, entry_data[CONF_PORT]),
+                        CONF_DEVICE: self._yaml_defaults.get(
+                            CONF_DEVICE, entry_data[CONF_DEVICE]
+                        ),
+                        CONF_PORT: self._yaml_defaults.get(
+                            CONF_PORT, entry_data[CONF_PORT]
+                        ),
                         CONF_IP_ADDRESS: self._yaml_defaults.get(CONF_IP_ADDRESS),
                         CONF_VERBOSE_LOGGING: self._yaml_defaults.get(
                             CONF_VERBOSE_LOGGING,
@@ -366,7 +401,9 @@ class AdsConfigFlow(ConfigFlow, domain="ads"):
                         CONF_PORT: port,
                         CONF_IP_ADDRESS: ip_address,
                         CONF_VERBOSE_LOGGING: user_input[CONF_VERBOSE_LOGGING],
-                        CONF_LEGACY_ENTITIES: self._yaml_defaults.get(CONF_LEGACY_ENTITIES, {})
+                        CONF_LEGACY_ENTITIES: self._yaml_defaults.get(
+                            CONF_LEGACY_ENTITIES, {}
+                        )
                         if self._yaml_defaults
                         else {},
                     },
@@ -375,7 +412,9 @@ class AdsConfigFlow(ConfigFlow, domain="ads"):
         yaml_defaults = self._yaml_defaults or {}
         return self.async_show_form(
             step_id="manual",
-            data_schema=self._user_data_schema(self._manual_form_defaults(yaml_defaults)),
+            data_schema=self._user_data_schema(
+                self._manual_form_defaults(yaml_defaults)
+            ),
             errors=errors,
         )
 
@@ -383,7 +422,9 @@ class AdsConfigFlow(ConfigFlow, domain="ads"):
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         """Load the first ADS YAML config that can be found."""
-        _LOGGER.debug("ADS config flow: yaml_import triggered user_input=%s", user_input)
+        _LOGGER.debug(
+            "ADS config flow: yaml_import triggered user_input=%s", user_input
+        )
         self._yaml_defaults = await self.hass.async_add_executor_job(
             _discover_yaml_ads_config, self.hass.config.config_dir
         )
@@ -497,6 +538,237 @@ class AdsOptionsFlow(OptionsFlow):
         )
 
 
+class AdsDeviceMappingSubentryFlow(ConfigSubentryFlow):
+    """Configure one or more ADS entities for a selected Home Assistant device."""
+
+    async def async_step_user(
+        self, user_input: dict[str, Any] | None = None
+    ) -> SubentryFlowResult:
+        """Select the Home Assistant device to attach mapped entities to."""
+        errors: dict[str, str] = {}
+        if not hasattr(self, "_entities"):
+            self._entities: list[dict[str, Any]] = []
+            self._mapped_device_id = uuid4().hex
+            if self.source == SOURCE_RECONFIGURE:
+                self._initialize_from_subentry()
+
+        if user_input is not None:
+            ha_device_id = user_input[CONF_HA_DEVICE_ID]
+            device = dr.async_get(self.hass).async_get(ha_device_id)
+            if device is None:
+                errors["base"] = "device_not_found"
+            elif self._device_is_already_mapped(ha_device_id):
+                errors["base"] = "already_configured"
+            else:
+                if user_input.get("replace_mappings", False):
+                    self._entities = []
+                self._ha_device_id = ha_device_id
+                self._device_name = device.name_by_user or device.name or "ADS device"
+                return await self.async_step_platform()
+
+        suggested_values = {}
+        if self.source == SOURCE_RECONFIGURE and hasattr(self, "_ha_device_id"):
+            suggested_values[CONF_HA_DEVICE_ID] = self._ha_device_id
+        schema_fields: dict[Any, Any] = {
+            vol.Required(CONF_HA_DEVICE_ID): selector.DeviceSelector(
+                selector.DeviceSelectorConfig()
+            )
+        }
+        if self.source == SOURCE_RECONFIGURE:
+            schema_fields[vol.Optional("replace_mappings", default=False)] = bool
+        schema = vol.Schema(schema_fields)
+        return self.async_show_form(
+            step_id="user",
+            data_schema=self.add_suggested_values_to_schema(schema, suggested_values),
+            errors=errors,
+        )
+
+    async_step_reconfigure = async_step_user
+
+    async def async_step_platform(
+        self, user_input: dict[str, Any] | None = None
+    ) -> SubentryFlowResult:
+        """Choose the Home Assistant entity platform to create."""
+        if user_input is not None:
+            self._platform = user_input["platform"]
+            return await self.async_step_entity()
+
+        return self.async_show_form(
+            step_id="platform",
+            data_schema=vol.Schema(
+                {
+                    vol.Required("platform"): selector.SelectSelector(
+                        selector.SelectSelectorConfig(options=list(ROLE_TYPES))
+                    )
+                }
+            ),
+        )
+
+    async def async_step_entity(
+        self, user_input: dict[str, Any] | None = None
+    ) -> SubentryFlowResult:
+        """Map the variables for one entity and optionally add another."""
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            entity = {
+                "id": uuid4().hex,
+                "device_id": self._mapped_device_id,
+                "name": user_input["entity_name"],
+                "platform": self._platform,
+                "roles": {},
+                "device_class": user_input.get("device_class", ""),
+                "unit": user_input.get("unit", ""),
+            }
+            for role in ROLE_TYPES[self._platform]:
+                variable_name = user_input.get(f"{role}_variable", "")
+                if variable_name:
+                    entity["roles"][role] = {
+                        "name": variable_name,
+                        "type": user_input[f"{role}_type"],
+                    }
+
+            candidate_entities = [*self._entities, entity]
+            document = self._mapping_document(candidate_entities)
+            try:
+                self._validate_document(document)
+            except vol.Invalid:
+                errors["base"] = "invalid_mapping"
+            else:
+                self._entities = candidate_entities
+                if user_input["add_another"]:
+                    return await self.async_step_platform()
+                return self._create_or_update_subentry(
+                    self._mapping_document(self._entities)
+                )
+
+        schema: dict[Any, Any] = {
+            vol.Required("entity_name"): vol.All(str, vol.Length(min=1, max=255)),
+            vol.Required("add_another", default=False): bool,
+        }
+        required_roles = REQUIRED_ROLES[self._platform]
+        for role, supported_types in ROLE_TYPES[self._platform].items():
+            role_name = f"{role}_variable"
+            role_type = f"{role}_type"
+            if role in required_roles:
+                schema[vol.Required(role_name)] = vol.All(
+                    str, vol.Length(min=1, max=255)
+                )
+                schema[vol.Required(role_type, default=supported_types[0])] = (
+                    selector.SelectSelector(
+                        selector.SelectSelectorConfig(options=list(supported_types))
+                    )
+                )
+            else:
+                schema[vol.Optional(role_name, default="")] = str
+                schema[vol.Optional(role_type, default=supported_types[0])] = (
+                    selector.SelectSelector(
+                        selector.SelectSelectorConfig(options=list(supported_types))
+                    )
+                )
+        if DEVICE_CLASSES[self._platform]:
+            schema[vol.Optional("device_class", default="")] = selector.SelectSelector(
+                selector.SelectSelectorConfig(
+                    options=["", *DEVICE_CLASSES[self._platform]]
+                )
+            )
+        if self._platform == "sensor":
+            schema[vol.Optional("unit", default="")] = str
+
+        return self.async_show_form(
+            step_id="entity",
+            data_schema=vol.Schema(schema),
+            errors=errors,
+        )
+
+    def _initialize_from_subentry(self) -> None:
+        """Load the current configuration when editing a mapping subentry."""
+        subentry = self._get_reconfigure_subentry()
+        document = subentry.data[CONF_MAPPING]
+        mapped_device = document["devices"][0]
+        self._ha_device_id = mapped_device[CONF_HA_DEVICE_ID]
+        self._mapped_device_id = mapped_device["id"]
+        self._device_name = mapped_device["name"]
+        self._entities = list(document["entities"])
+
+    def _device_is_already_mapped(self, ha_device_id: str) -> bool:
+        """Prevent multiple subentries from independently claiming one HA device."""
+        entry = self._get_entry()
+        excluded_subentry_id = (
+            self._get_reconfigure_subentry().subentry_id
+            if self.source == SOURCE_RECONFIGURE
+            else None
+        )
+        existing_mapping = entry.options.get(CONF_MAPPING, empty_mapping())
+        if any(
+            device.get(CONF_HA_DEVICE_ID) == ha_device_id
+            for device in existing_mapping["devices"]
+        ):
+            return True
+        return any(
+            subentry.subentry_id != excluded_subentry_id
+            and any(
+                device.get(CONF_HA_DEVICE_ID) == ha_device_id
+                for device in subentry.data.get(CONF_MAPPING, {}).get("devices", [])
+            )
+            for subentry in entry.subentries.values()
+        )
+
+    def _mapping_document(self, entities: list[dict[str, Any]]) -> dict[str, Any]:
+        """Build the per-device mapping document stored in the subentry."""
+        return {
+            "devices": [
+                {
+                    "id": self._mapped_device_id,
+                    "name": self._device_name,
+                    CONF_HA_DEVICE_ID: self._ha_device_id,
+                }
+            ],
+            "entities": entities,
+        }
+
+    def _validate_document(self, document: dict[str, Any]) -> None:
+        """Validate new mappings against legacy and other configured mappings."""
+        entry = self._get_entry()
+        devices = list(entry.options.get(CONF_MAPPING, empty_mapping())["devices"])
+        entities = list(entry.options.get(CONF_MAPPING, empty_mapping())["entities"])
+        excluded_subentry_id = (
+            self._get_reconfigure_subentry().subentry_id
+            if self.source == SOURCE_RECONFIGURE
+            else None
+        )
+        for subentry in entry.subentries.values():
+            if subentry.subentry_id == excluded_subentry_id:
+                continue
+            existing_document = subentry.data.get(CONF_MAPPING)
+            if existing_document is not None:
+                devices.extend(existing_document["devices"])
+                entities.extend(existing_document["entities"])
+        devices.extend(document["devices"])
+        entities.extend(document["entities"])
+        validate_mapping(
+            {"devices": devices, "entities": entities},
+            entry.options.get(
+                CONF_LEGACY_ENTITIES,
+                entry.data.get(CONF_LEGACY_ENTITIES, {}),
+            ),
+        )
+
+    def _create_or_update_subentry(
+        self, document: dict[str, Any]
+    ) -> SubentryFlowResult:
+        """Persist the selected device and its mapped entities."""
+        title = self._device_name
+        data = {CONF_MAPPING: document}
+        if self.source == SOURCE_RECONFIGURE:
+            return self.async_update_and_abort(
+                self._get_entry(),
+                self._get_reconfigure_subentry(),
+                title=title,
+                data=data,
+            )
+        return self.async_create_entry(title=title, data=data)
+
+
 def _validate_ads_connection(net_id: str, port: int, ip_address: str | None) -> bool:
     """Validate ADS connection parameters by opening and closing connection."""
     _LOGGER.debug(
@@ -579,7 +851,9 @@ def _discover_yaml_ads_config(config_dir: str) -> dict[str, Any] | None:
     config_path = Path(config_dir)
     _LOGGER.debug("ADS config flow: searching for YAML ADS config in %s", config_dir)
 
-    for yaml_path in sorted((*config_path.rglob("*.yaml"), *config_path.rglob("*.yml"))):
+    for yaml_path in sorted(
+        (*config_path.rglob("*.yaml"), *config_path.rglob("*.yml"))
+    ):
         try:
             loaded_config = load_yaml_config_file(str(yaml_path))
         except (FileNotFoundError, HomeAssistantError, OSError) as err:
@@ -602,7 +876,7 @@ def _discover_yaml_ads_config(config_dir: str) -> dict[str, Any] | None:
 
         try:
             port_int = int(port)
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             _LOGGER.debug(
                 "ADS config flow: invalid port in YAML file %s (value=%s)",
                 yaml_path,
@@ -616,7 +890,9 @@ def _discover_yaml_ads_config(config_dir: str) -> dict[str, Any] | None:
             CONF_PORT: port_int,
             CONF_IP_ADDRESS: ads_config.get(CONF_IP_ADDRESS) or None,
             CONF_VERBOSE_LOGGING: bool(ads_config.get(CONF_VERBOSE_LOGGING, False)),
-            CONF_LEGACY_ENTITIES: _collect_legacy_entities_from_loaded_yaml(loaded_config),
+            CONF_LEGACY_ENTITIES: _collect_legacy_entities_from_loaded_yaml(
+                loaded_config
+            ),
         }
 
     _LOGGER.debug("ADS config flow: no valid ADS YAML config found")

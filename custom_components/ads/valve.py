@@ -1,7 +1,5 @@
 """Support for ADS valves."""
 
-from __future__ import annotations
-
 import pyads
 import voluptuous as vol
 
@@ -15,12 +13,16 @@ from homeassistant.components.valve import (
 from homeassistant.const import CONF_DEVICE_CLASS, CONF_NAME
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.entity_platform import (
+    AddConfigEntryEntitiesCallback,
+    AddEntitiesCallback,
+)
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 
 from .const import CONF_ADS_VAR, CONF_LEGACY_ENTITIES, DATA_ADS, DATA_ADS_HUBS
 from .entity import AdsEntity, is_legacy_entity_migrated
 from .hub import AdsHub
+from .mapped_entity import async_add_mapped_entities
 
 DEFAULT_NAME = "ADS valve"
 
@@ -52,7 +54,7 @@ def setup_platform(
 async def async_setup_entry(
     hass: HomeAssistant,
     entry,
-    async_add_entities: AddEntitiesCallback,
+    async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     """Set up migrated legacy ADS valves from config entry options."""
     ads_hub = hass.data.get(DATA_ADS_HUBS, {}).get(entry.entry_id)
@@ -68,6 +70,7 @@ async def async_setup_entry(
     ]
     if entities:
         async_add_entities(entities)
+    async_add_mapped_entities(hass, entry, "valve", async_add_entities)
 
 
 def _build_valve_entity(ads_hub: AdsHub, config: ConfigType) -> AdsValve | None:
