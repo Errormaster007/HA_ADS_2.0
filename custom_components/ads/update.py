@@ -1,5 +1,6 @@
 """Support for ADS update entities."""
 
+import asyncio
 from datetime import timedelta
 import json
 import logging
@@ -7,11 +8,13 @@ from pathlib import Path
 
 from aiohttp import ClientError
 
+from homeassistant.components import persistent_notification
 from homeassistant.components.update import UpdateEntity, UpdateEntityFeature
-from homeassistant.const import EntityCategory
+from homeassistant.const import STATE_ON, EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.storage import Store
 
 from .const import DOMAIN
 
@@ -22,6 +25,8 @@ SCAN_INTERVAL = timedelta(hours=6)
 _MANIFEST_PATH = Path(__file__).with_name("manifest.json")
 _REPOSITORY = "Errormaster007/HA_ADS_2.0"
 _LATEST_RELEASE_URL = f"https://api.github.com/repos/{_REPOSITORY}/releases/latest"
+_NOTIFICATION_ID = f"{DOMAIN}_update_available"
+_NOTIFICATION_LOCK_KEY = f"{DOMAIN}_update_notification_lock"
 
 
 def _installed_version() -> str:
@@ -69,6 +74,8 @@ class AdsUpdateEntity(UpdateEntity):
         self._release_url: str | None = None
         self._attr_installed_version = installed_version
         self._attr_unique_id = f"{DOMAIN}_{entry_id}_update"
+        self._notification_store: Store[dict[str, list[str]]] | None = None
+        self._notified_versions: set[str] | None = None
 
     @property
     def title(self) -> str:
@@ -119,3 +126,43 @@ class AdsUpdateEntity(UpdateEntity):
         self._release_notes = body or None
         self._release_summary = body[:255] if body else None
         self._release_url = str(payload.get("html_url", "")) or None
+        if self.state == STATE_ON:
+            await self._async_notify_update_available(latest_version)
+        else:
+            persistent_notification.async_dismiss(self.hass, _NOTIFICATION_ID)
+
+    async def _async_notify_update_available(self, latest_version: str) -> None:
+        """Create one persistent notification for each newly available version."""
+        lock: asyncio.Lock = self.hass.data.setdefault(
+            _NOTIFICATION_LOCK_KEY, asyncio.Lock()
+        )
+        if self._notification_store is None:
+            self._notification_store = Store(
+                self.hass, 1, f"{DOMAIN}_update_notifications"
+            )
+        async with lock:
+            if self._notified_versions is None:
+                saved = await self._notification_store.async_load()
+                self._notified_versions = (
+                    set(saved.get("versions", [])) if saved else set()
+                )
+            if latest_version in self._notified_versions:
+                return
+
+            release_url = self._release_url or (
+                f"https://github.com/{_REPOSITORY}/releases"
+            )
+            persistent_notification.async_create(
+                self.hass,
+                (
+                    f"ADS-Version **{latest_version}** ist verfügbar "
+                    f"(installiert: {self.installed_version}). Aktualisiere ADS über "
+                    f"HACS oder öffne die [Release-Seite]({release_url})."
+                ),
+                title="ADS-Update verfügbar",
+                notification_id=_NOTIFICATION_ID,
+            )
+            self._notified_versions.add(latest_version)
+            await self._notification_store.async_save(
+                {"versions": sorted(self._notified_versions)}
+            )

@@ -1,7 +1,7 @@
 # ADS – Beckhoff TwinCAT Integration für Home Assistant
 
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://hacs.xyz)
-[![Version](https://img.shields.io/badge/version-0.2.6-blue.svg)](https://github.com/Errormaster007/HA_ADS_2.0/releases)
+[![Version](https://img.shields.io/badge/version-0.2.7-blue.svg)](https://github.com/Errormaster007/HA_ADS_2.0/releases)
 
 Erweiterte ADS-Integration für Home Assistant zur Anbindung von Beckhoff TwinCAT-SPSen über das ADS-Protokoll.
 
@@ -14,7 +14,9 @@ Erweiterte ADS-Integration für Home Assistant zur Anbindung von Beckhoff TwinCA
 
 Die Update-Entity liest die installierte Version beim Setup im Executor ein,
 fragt GitHub direkt beim Hinzufügen und danach alle sechs Stunden ab und
-vermeidet so blockierende Dateizugriffe und unnötige API-Anfragen.
+vermeidet so blockierende Dateizugriffe und unnötige API-Anfragen. Bei einer
+neuen Version erstellt sie einmalig eine dauerhafte HA-Benachrichtigung mit
+Link zur Release-Seite; die Installation erfolgt weiterhin über HACS.
 
 ## SPS-Variablen Geräten zuordnen
 
