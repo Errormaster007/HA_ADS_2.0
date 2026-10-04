@@ -131,9 +131,12 @@
             "position_command_variable": "Position command variable",
             "position_command_type": "Position command ADS type",
             "device_class": "Device class",
-            "unit": "Unit of measurement"
+            "unit": "Unit of measurement",
+            "min_value": "Minimum setpoint",
+            "max_value": "Maximum setpoint",
+            "step": "Setpoint step"
           },
-          "description": "Map the PLC variables for this entity. Optional variables can be left empty."
+          "description": "Map the PLC variables for this entity. Number entities use a numeric feedback and command variable with a configurable range and unit."
         }
       }
     }
@@ -143,6 +146,17 @@
       "options": {
         "existing": "Use an existing Home Assistant device",
         "new": "Create a new ADS device"
+      }
+    },
+    "mapped_entity_platform": {
+      "options": {
+        "sensor": "Sensor",
+        "binary_sensor": "Binary sensor",
+        "switch": "Switch",
+        "number": "Number (analog control)",
+        "light": "Light",
+        "cover": "Cover",
+        "valve": "Valve"
       }
     }
   },

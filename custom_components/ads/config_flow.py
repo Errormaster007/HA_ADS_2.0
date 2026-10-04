@@ -628,11 +628,7 @@ class AdsDeviceMappingSubentryFlow(ConfigSubentryFlow):
         if self.source == SOURCE_RECONFIGURE and self._ha_device_id is None:
             suggested_values["device_name"] = self._device_name
         schema = vol.Schema(
-            {
-                vol.Required("device_name"): vol.All(
-                    str, vol.Length(min=1, max=255)
-                )
-            }
+            {vol.Required("device_name"): vol.All(str, vol.Length(min=1, max=255))}
         )
         return self.async_show_form(
             step_id="new_device",
@@ -658,7 +654,10 @@ class AdsDeviceMappingSubentryFlow(ConfigSubentryFlow):
             data_schema=vol.Schema(
                 {
                     vol.Required("platform"): selector.SelectSelector(
-                        selector.SelectSelectorConfig(options=list(ROLE_TYPES))
+                        selector.SelectSelectorConfig(
+                            options=list(ROLE_TYPES),
+                            translation_key="mapped_entity_platform",
+                        )
                     )
                 }
             ),
@@ -679,6 +678,12 @@ class AdsDeviceMappingSubentryFlow(ConfigSubentryFlow):
                 "device_class": user_input.get("device_class", ""),
                 "unit": user_input.get("unit", ""),
             }
+            if self._platform == "number":
+                entity.update(
+                    min_value=user_input["min_value"],
+                    max_value=user_input["max_value"],
+                    step=user_input["step"],
+                )
             for role in ROLE_TYPES[self._platform]:
                 variable_name = user_input.get(f"{role}_variable", "")
                 if variable_name:
@@ -731,8 +736,31 @@ class AdsDeviceMappingSubentryFlow(ConfigSubentryFlow):
                     options=["", *DEVICE_CLASSES[self._platform]]
                 )
             )
-        if self._platform == "sensor":
+        if self._platform in ("sensor", "number"):
             schema[vol.Optional("unit", default="")] = str
+        if self._platform == "number":
+            schema.update(
+                {
+                    vol.Required("min_value", default=0): selector.NumberSelector(
+                        selector.NumberSelectorConfig(
+                            mode=selector.NumberSelectorMode.BOX,
+                            step="any",
+                        )
+                    ),
+                    vol.Required("max_value", default=100): selector.NumberSelector(
+                        selector.NumberSelectorConfig(
+                            mode=selector.NumberSelectorMode.BOX,
+                            step="any",
+                        )
+                    ),
+                    vol.Required("step", default=1): selector.NumberSelector(
+                        selector.NumberSelectorConfig(
+                            mode=selector.NumberSelectorMode.BOX,
+                            step="any",
+                        )
+                    ),
+                }
+            )
 
         return self.async_show_form(
             step_id="entity",

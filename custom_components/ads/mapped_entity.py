@@ -9,11 +9,13 @@ import pyads
 from homeassistant.components.binary_sensor import BinarySensorEntity
 from homeassistant.components.cover import CoverEntity, CoverEntityFeature
 from homeassistant.components.light import ColorMode, LightEntity
+from homeassistant.components.number import NumberEntity, NumberMode
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.components.switch import SwitchEntity
 from homeassistant.components.valve import ValveEntity, ValveEntityFeature
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.entity import DeviceInfo, Entity
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
@@ -116,7 +118,7 @@ class AdsMappedEntity(Entity):
                 "Cannot unsubscribe mapped ADS entity %s: %s", self.unique_id, err
             )
 
-    async def _write(self, role: str, value: bool | int) -> None:
+    async def _write(self, role: str, value: bool | float) -> None:
         variable = self._config["roles"][role]
         await self.hass.async_add_executor_job(
             self._hub.write_mapped_variable,
@@ -170,6 +172,42 @@ class AdsMappedSwitch(AdsMappedEntity, SwitchEntity):
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Write the OFF command to the PLC."""
         await self._write("command", False)
+
+
+class AdsMappedNumber(AdsMappedEntity, NumberEntity):
+    """A numeric PLC setpoint with an independent feedback variable."""
+
+    _attr_mode = NumberMode.SLIDER
+
+    def __init__(self, *args: Any) -> None:
+        """Initialize the numeric range and unit."""
+        super().__init__(*args)
+        self._min_value = float(self._config.get("min_value", 0.0))
+        self._max_value = float(self._config.get("max_value", 100.0))
+        self._attr_native_min_value = self._min_value
+        self._attr_native_max_value = self._max_value
+        self._attr_native_step = float(self._config.get("step", 1.0))
+        self._attr_native_unit_of_measurement = self._config["unit"] or None
+
+    @property
+    def native_value(self) -> float | None:
+        """Return the mapped numeric feedback."""
+        value = self._values.get("state")
+        return None if value is None else float(value)
+
+    async def async_set_native_value(self, value: float) -> None:
+        """Write a bounded numeric setpoint using the selected ADS type."""
+        if not self._min_value <= value <= self._max_value:
+            raise HomeAssistantError(
+                f"Requested ADS number value {value} is outside the configured range"
+            )
+        command_type = self._config["roles"]["command"]["type"]
+        if command_type not in ("real", "lreal") and not value.is_integer():
+            raise HomeAssistantError(
+                f"ADS command type {command_type} only accepts whole-number values"
+            )
+        command_value = value if command_type in ("real", "lreal") else int(value)
+        await self._write("command", command_value)
 
 
 class AdsMappedLight(AdsMappedEntity, LightEntity):
@@ -292,6 +330,7 @@ _ENTITY_CLASSES: dict[str, Callable[..., AdsMappedEntity]] = {
     "sensor": AdsMappedSensor,
     "binary_sensor": AdsMappedBinarySensor,
     "switch": AdsMappedSwitch,
+    "number": AdsMappedNumber,
     "light": AdsMappedLight,
     "cover": AdsMappedCover,
     "valve": AdsMappedValve,

@@ -1,5 +1,6 @@
 """Validated, connection-scoped device and variable mappings."""
 
+import math
 from typing import Any, NotRequired, TypedDict
 from uuid import uuid4
 
@@ -34,6 +35,7 @@ ROLE_TYPES = {
     "sensor": {"state": (*NUMERIC_TYPES, "bool", "string")},
     "binary_sensor": {"state": BOOL_TYPES},
     "switch": {"state": BOOL_TYPES, "command": BOOL_TYPES},
+    "number": {"state": NUMERIC_TYPES, "command": NUMERIC_TYPES},
     "light": {
         "state": BOOL_TYPES,
         "command": BOOL_TYPES,
@@ -59,6 +61,7 @@ REQUIRED_ROLES = {
     "sensor": ("state",),
     "binary_sensor": ("state",),
     "switch": ("state", "command"),
+    "number": ("state", "command"),
     "light": ("state", "command"),
     "cover": ("state", "open", "close"),
     "valve": ("state", "command"),
@@ -72,6 +75,7 @@ DEVICE_CLASSES = {
     "cover": [str(value) for value in CoverDeviceClass],
     "valve": [str(value) for value in ValveDeviceClass],
     "switch": [],
+    "number": [],
     "light": [],
 }
 
@@ -101,6 +105,9 @@ class MappedEntity(TypedDict):
     roles: dict[str, VariableRole]
     device_class: str
     unit: str
+    min_value: NotRequired[float]
+    max_value: NotRequired[float]
+    step: NotRequired[float]
 
 
 class MappingConfig(TypedDict):
@@ -130,6 +137,9 @@ _ENTITY_SCHEMA = vol.Schema(
         },
         vol.Optional("device_class", default=""): str,
         vol.Optional("unit", default=""): vol.All(str, vol.Length(max=64)),
+        vol.Optional("min_value", default=0.0): vol.Coerce(float),
+        vol.Optional("max_value", default=100.0): vol.Coerce(float),
+        vol.Optional("step", default=1.0): vol.Coerce(float),
     }
 )
 _SCHEMA = vol.Schema(
@@ -153,6 +163,25 @@ def entity_unique_id(entry_id: str, entity_id: str) -> str:
 def device_identifier(entry_id: str, device_id: str) -> str:
     """Scope a logical device to its integration entry."""
     return f"{entry_id}:mapped-device:{device_id}"
+
+
+def _validate_number_entity(entity: MappedEntity) -> None:
+    """Validate an analog setpoint's numeric range and ADS command type."""
+    min_value = entity.get("min_value", 0.0)
+    max_value = entity.get("max_value", 100.0)
+    step = entity.get("step", 1.0)
+    if not all(math.isfinite(value) for value in (min_value, max_value, step)):
+        raise vol.Invalid("Number limits and step must be finite")
+    if min_value >= max_value:
+        raise vol.Invalid("Number minimum must be less than maximum")
+    if step <= 0 or step > max_value - min_value:
+        raise vol.Invalid("Number step must be positive and fit its range")
+    if entity["roles"]["command"]["type"] in INTEGER_TYPES and not all(
+        value.is_integer() for value in (min_value, max_value, step)
+    ):
+        raise vol.Invalid(
+            "Integer ADS command types require whole-number limits and steps"
+        )
 
 
 def new_revision() -> str:
@@ -235,8 +264,10 @@ def validate_mapping(
         device_class = entity["device_class"]
         if device_class and device_class not in DEVICE_CLASSES[platform]:
             raise vol.Invalid(f"Unsupported device class for {platform}")
-        if entity["unit"] and platform != "sensor":
-            raise vol.Invalid("Only sensors support a unit")
+        if entity["unit"] and platform not in ("sensor", "number"):
+            raise vol.Invalid("Only sensors and numbers support a unit")
+        if platform == "number":
+            _validate_number_entity(entity)
         if (
             device_class
             and platform == "sensor"
