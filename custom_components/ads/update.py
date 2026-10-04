@@ -41,7 +41,8 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up the ADS update entity."""
-    async_add_entities([AdsUpdateEntity(hass, entry.entry_id)])
+    installed_version = await hass.async_add_executor_job(_installed_version)
+    async_add_entities([AdsUpdateEntity(hass, entry.entry_id, installed_version)])
 
 
 class AdsUpdateEntity(UpdateEntity):
@@ -51,7 +52,9 @@ class AdsUpdateEntity(UpdateEntity):
     _attr_name = "Update"
     _attr_entity_category = EntityCategory.DIAGNOSTIC
 
-    def __init__(self, hass: HomeAssistant, entry_id: str) -> None:
+    def __init__(
+        self, hass: HomeAssistant, entry_id: str, installed_version: str
+    ) -> None:
         """Initialize the update entity."""
         self.hass = hass
         self._entry_id = entry_id
@@ -59,7 +62,7 @@ class AdsUpdateEntity(UpdateEntity):
         self._release_notes: str | None = None
         self._release_summary: str | None = None
         self._release_url: str | None = None
-        self._attr_installed_version = _installed_version()
+        self._attr_installed_version = installed_version
         self._attr_unique_id = f"{DOMAIN}_{entry_id}_update"
 
     @property
