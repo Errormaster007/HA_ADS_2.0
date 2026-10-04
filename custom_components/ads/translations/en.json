@@ -131,6 +131,20 @@
       }
     }
   },
+  "selector": {
+    "mapped_entity_platform": {
+      "options": {
+        "sensor": "Sensor",
+        "binary_sensor": "Binary sensor",
+        "switch": "Switch",
+        "number": "Number (analog control)",
+        "pump": "Pump (analog setpoint)",
+        "light": "Light",
+        "cover": "Cover",
+        "valve": "Valve"
+      }
+    }
+  },
   "services": {
     "import_gvl": {
       "description": "Import GVL variables from text or a file and store them in ADS options.",

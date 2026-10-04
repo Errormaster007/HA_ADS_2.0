@@ -1,7 +1,7 @@
 # ADS – Beckhoff TwinCAT Integration für Home Assistant
 
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://hacs.xyz)
-[![Version](https://img.shields.io/badge/version-0.2.8-blue.svg)](https://github.com/Errormaster007/HA_ADS_2.0/releases)
+[![Version](https://img.shields.io/badge/version-0.2.9-blue.svg)](https://github.com/Errormaster007/HA_ADS_2.0/releases)
 
 Erweiterte ADS-Integration für Home Assistant zur Anbindung von Beckhoff TwinCAT-SPSen über das ADS-Protokoll.
 
@@ -29,7 +29,10 @@ Untereintrag lassen sich mehrere Sensoren, Binärsensoren, Schalter,
 analoge Zahlenwerte, Lichter, Abdeckungen und Ventile mit ihren jeweiligen
 SPS-Rückmelde- und Befehlsvariablen anlegen. Eine analog angesteuerte Pumpe
 kann beispielsweise einen Zahlenwert für Drehzahl oder Frequenz und zusätzlich
-einen separaten Ein/Aus-Schalter auf demselben Gerät erhalten.
+einen separaten Ein/Aus-Schalter auf demselben Gerät erhalten. Im Mapping kann
+dafür direkt **Pumpe (analoger Sollwert)** ausgewählt werden; dieser Eintrag
+erzeugt eine Number-Entität mit Pumpen-Sollwert, während der Schalter separat
+hinzugefügt wird.
 
 ## Installation über HACS (empfohlen)
 

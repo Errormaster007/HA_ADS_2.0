@@ -154,6 +154,7 @@
         "binary_sensor": "Binary sensor",
         "switch": "Switch",
         "number": "Number (analog control)",
+        "pump": "Pump (analog setpoint)",
         "light": "Light",
         "cover": "Cover",
         "valve": "Valve"

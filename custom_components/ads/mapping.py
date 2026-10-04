@@ -66,6 +66,7 @@ REQUIRED_ROLES = {
     "cover": ("state", "open", "close"),
     "valve": ("state", "command"),
 }
+PLATFORM_ALIASES = {"pump": "number"}
 WRITE_ROLES = frozenset(
     ("command", "open", "close", "stop", "brightness_command", "position_command")
 )

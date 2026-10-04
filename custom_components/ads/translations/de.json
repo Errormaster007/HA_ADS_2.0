@@ -131,6 +131,20 @@
       }
     }
   },
+  "selector": {
+    "mapped_entity_platform": {
+      "options": {
+        "sensor": "Sensor",
+        "binary_sensor": "Binärsensor",
+        "switch": "Schalter",
+        "number": "Zahlenwert (analog)",
+        "pump": "Pumpe (analoger Sollwert)",
+        "light": "Licht",
+        "cover": "Abdeckung",
+        "valve": "Ventil"
+      }
+    }
+  },
   "services": {
     "import_gvl": {
       "description": "Importiert GVL-Variablen aus Text oder Datei und speichert sie in den ADS-Optionen.",

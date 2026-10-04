@@ -41,6 +41,7 @@ from .gvl import parse_gvl_variables
 from .mapping import (
     CONF_MAPPING,
     DEVICE_CLASSES,
+    PLATFORM_ALIASES,
     REQUIRED_ROLES,
     ROLE_TYPES,
     empty_mapping,
@@ -646,7 +647,8 @@ class AdsDeviceMappingSubentryFlow(ConfigSubentryFlow):
     ) -> SubentryFlowResult:
         """Choose the Home Assistant entity platform to create."""
         if user_input is not None:
-            self._platform = user_input["platform"]
+            selected_platform = user_input["platform"]
+            self._platform = PLATFORM_ALIASES.get(selected_platform, selected_platform)
             return await self.async_step_entity()
 
         return self.async_show_form(
@@ -655,7 +657,7 @@ class AdsDeviceMappingSubentryFlow(ConfigSubentryFlow):
                 {
                     vol.Required("platform"): selector.SelectSelector(
                         selector.SelectSelectorConfig(
-                            options=list(ROLE_TYPES),
+                            options=[*ROLE_TYPES, *PLATFORM_ALIASES],
                             translation_key="mapped_entity_platform",
                         )
                     )
