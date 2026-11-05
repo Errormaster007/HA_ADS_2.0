@@ -8,8 +8,8 @@ from typing import Any
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
-from homeassistant.helpers.entity_component import DATA_INSTANCES
 from homeassistant.helpers.entity import Entity
+from homeassistant.helpers.entity_component import DATA_INSTANCES
 
 from .const import CONF_ADS_VAR, CONF_LEGACY_ENTITIES, DOMAIN, STATE_KEY_STATE
 from .hub import AdsHub
@@ -17,9 +17,7 @@ from .hub import AdsHub
 _LOGGER = logging.getLogger(__name__)
 
 
-def is_legacy_entity_migrated(
-    hass: HomeAssistant, platform: str, ads_var: str
-) -> bool:
+def is_legacy_entity_migrated(hass: HomeAssistant, platform: str, ads_var: str) -> bool:
     """Return whether a YAML ADS entity has been claimed by a config entry."""
     for entry in hass.config_entries.async_entries(DOMAIN):
         for source in (entry.data, entry.options):
@@ -75,8 +73,19 @@ class AdsEntity(Entity):
         self._ads_hub = ads_hub
         self._ads_var = ads_var
         self._event: asyncio.Event | None = None
+        self._connection_callback = self._connection_changed
         self._attr_unique_id = ads_var
         self._attr_name = name
+
+    def _connection_changed(self, connected: bool) -> None:
+        """Refresh entity availability when ADS connectivity changes."""
+        if not connected:
+            self._state_dict[STATE_KEY_STATE] = None
+        self.schedule_update_ha_state()
+
+    async def async_will_remove_from_hass(self) -> None:
+        """Unregister the connection state callback."""
+        self._ads_hub.unregister_connection_callback(self._connection_callback)
 
     async def async_initialize_device(
         self,
@@ -104,6 +113,7 @@ class AdsEntity(Entity):
             self._event.set()
 
         self._event = asyncio.Event()
+        self._ads_hub.register_connection_callback(self._connection_callback)
 
         registered = await self.hass.async_add_executor_job(
             self._ads_hub.add_device_notification, ads_var, plctype, update
@@ -122,4 +132,4 @@ class AdsEntity(Entity):
     @property
     def available(self) -> bool:
         """Return False if state has not been updated yet."""
-        return self._state_dict[STATE_KEY_STATE] is not None
+        return self._ads_hub.connected and self._state_dict[STATE_KEY_STATE] is not None

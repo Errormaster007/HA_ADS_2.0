@@ -169,6 +169,7 @@ def setup(hass: HomeAssistant, config: ConfigType) -> bool:
 
     hass.data[DATA_ADS] = ads
     hass.data[DATA_ADS_HUBS]["yaml"] = ads
+    ads.start_connection_monitor(hass)
     hass.bus.listen(EVENT_HOMEASSISTANT_STOP, partial(_shutdown_yaml_hub, hass))
     hass.add_job(_async_register_services(hass))
 
@@ -211,6 +212,7 @@ async def async_setup_entry(hass: HomeAssistant, entry) -> bool:
         return False
 
     hass.data[DATA_ADS_HUBS][entry.entry_id] = hub
+    entry.async_on_unload(hub.start_connection_monitor(hass))
     if DATA_ADS not in hass.data:
         hass.data[DATA_ADS] = hub
 
@@ -241,6 +243,7 @@ async def async_setup_entry(hass: HomeAssistant, entry) -> bool:
 
             yaml_hub = hass.data.get(DATA_ADS_HUBS, {}).pop("yaml", None)
             if yaml_hub is not None:
+                yaml_hub.stop_connection_monitor()
                 await hass.async_add_executor_job(yaml_hub.shutdown)
                 if hass.data.get(DATA_ADS) is yaml_hub:
                     hass.data[DATA_ADS] = hub
@@ -259,6 +262,7 @@ async def async_setup_entry(hass: HomeAssistant, entry) -> bool:
 def _shutdown_yaml_hub(hass: HomeAssistant, event: Event) -> None:
     """Shut down the legacy YAML hub if it was not migrated to a config entry."""
     if yaml_hub := hass.data.get(DATA_ADS_HUBS, {}).get("yaml"):
+        yaml_hub.stop_connection_monitor()
         yaml_hub.shutdown()
 
 
@@ -268,6 +272,7 @@ async def async_unload_entry(hass: HomeAssistant, entry) -> bool:
     hubs = hass.data.get(DATA_ADS_HUBS, {})
     hub = hubs.pop(entry.entry_id, None)
     if hub is not None:
+        hub.stop_connection_monitor()
         await hass.async_add_executor_job(hub.shutdown)
 
     if hass.data.get(DATA_ADS) is hub:

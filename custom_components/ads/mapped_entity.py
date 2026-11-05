@@ -63,7 +63,18 @@ class AdsMappedEntity(Entity):
     async def async_added_to_hass(self) -> None:
         """Subscribe to feedback and read an initial snapshot in the executor."""
         self._active = True
+        self._hub.register_connection_callback(self._connection_changed)
         await self.hass.async_add_executor_job(self._subscribe)
+        self.async_write_ha_state()
+
+    def _connection_changed(self, connected: bool) -> None:
+        """Schedule an availability update when ADS connectivity changes."""
+        if not connected:
+            self.hass.add_job(self._set_unavailable)
+
+    @callback
+    def _set_unavailable(self) -> None:
+        self._attr_available = False
         self.async_write_ha_state()
 
     def _subscribe(self) -> None:
@@ -109,6 +120,7 @@ class AdsMappedEntity(Entity):
     async def async_will_remove_from_hass(self) -> None:
         """Remove subscriptions before the connection is closed."""
         self._active = False
+        self._hub.unregister_connection_callback(self._connection_changed)
         try:
             await self.hass.async_add_executor_job(
                 self._hub.remove_mapped_notifications, self._notification
